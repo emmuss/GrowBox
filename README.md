@@ -66,6 +66,8 @@ The current context.
 </div>
 
 ## Inline Fan Fritzing
+100Ohm Resistor, BC337 Transistor, D1 Mini, 24v Stepdown.
+If you dissassemble the Fan you will find GND, VCC, R+ R- as pins on the driver board. CAUTION 220v are transformed on the same board, be aware of it. The R+ and R- pins are connected to the control knob cable, I reused this.
 <a href="./InlineFan.fzz">
     <img src="./res/InlineFan_Steckplatine.png">
 </a>
