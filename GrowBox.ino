@@ -1,3 +1,4 @@
+#include <QList.h>
 #include <Wire.h>
 #include <Arduino_JSON.h>
 #include <ESP8266WiFi.h>
@@ -5,6 +6,10 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <EEPROM.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+
+#include "index.h"
 
 #include "arduino_secrets.h" 
 // ######################################################
@@ -13,11 +18,18 @@
 // # using CTRL + SHIFT + N (Arduino IDE)               #
 // # or    CTRL + N         (VSCode)                    #
 // ######################################################
+
 const char* hostname = "GrowBox01";
 const char* ssid = SECRET_SSID;    // your network SSID (name)
 const char* pass = SECRET_PASS;    // your network password
 
+// Timezone rule / NTP Servers
+const char* time_zone = "CET-1CEST,M3.5.0,M10.5.0/3"; // (Berlin)
+#define NTP_SERVERS "0.de.pool.ntp.org", "1.de.pool.ntp.org", "2.de.pool.ntp.org"
+#define NTP_MIN_VALID_EPOCH 1533081600
+
 ESP8266WebServer server(80);
+Adafruit_BME280 bme;
 
 // Pins
   const int pBuildinLed = LED_BUILTIN;
@@ -26,17 +38,30 @@ ESP8266WebServer server(80);
   // TODO: BME280!, Supersonic? (plant height), Soil moisture?, EC / PH?, 
   // pumps/fert/water?, 
 
+// BMEData
+struct BMEData {
+  time_t timestamp;
+  float temperature;
+  float pressure;
+  float humidity;
+};
+const int BME_DATA_SIZE = sizeof(BMEData);
+BMEData bmeData;
+const unsigned char bmeDataRetention = 24;
+QList<BMEData> bmeDataRetained;
 
 // Context
 struct Context
 {
   // Fan Speed, 255 = OFF, 0 = MAX.
   unsigned char fanSpeed;
+  // Timestamp for bme280 readings.
 };
 int CONTEXT_SIZE = sizeof(Context);
 const char * CONTEXT_MARKER = "GROW";
 int CONTEXT_MARKER_SIZE = 4;
 Context context;
+bool bmeAvailable = false;
 
 // Errors
 const char * parsingFailed = "Parsing JSON input failed!";
@@ -68,9 +93,29 @@ void contextSaveChanges() {
 
 // SERVER I/O ###########################################
 
+String bmeToJson(BMEData data) {
+    String result = "{";
+    result += "\"temperature\":" + String(data.temperature) + ",";
+    result += "\"humidity\":" + String(data.humidity) + ",";
+    result += "\"pressure\":" + String(data.pressure) + ",";
+    result += "\"timestamp\":" + String(data.timestamp);
+    result += "}";
+    return result;
+}
+
 void serverSendContext() {
-    String result = String("{");
-    result += "\"fanSpeed\":" + String(context.fanSpeed);
+    String result = 
+     "{";
+        result += "\"me\": \"" + String(hostname) + "\",";
+        result += "\"fanSpeed\":" + String(context.fanSpeed);
+      if (bmeAvailable) {
+        result += ", \"bme\": " + bmeToJson(bmeData);
+        result += ", \"bmeRetained\": [";
+        for(int i = 0; i < bmeDataRetained.size(); i++) {
+           result += (i != 0 ? ", " : "") + bmeToJson(bmeDataRetained[i]);
+        }
+        result += "]";
+      }
     result += "}";
 
     server.send(200, "application/json", result.c_str());
@@ -95,6 +140,10 @@ void serverSendInvalidRequest() {
 // REQUEST HANDLERS #####################################
 
 void handleRoot() {
+  server.send(200, "text/html", HTML_INDEX);
+}
+
+void handleGet() {
   serverSendContext();
 }
 
@@ -131,11 +180,23 @@ void handleNotFound() {
 
 void configureRoutes() {
   server.on("/", handleRoot);
+  server.on("/get", handleGet);
   server.on("/fan/set", HTTP_POST, handleFanSet);
   server.onNotFound(handleNotFound);
 }
 
 // SETUP / LOOP #########################################
+
+void initNtp() {
+  time_t now;
+  configTzTime(time_zone, NTP_SERVERS);
+  Serial.print("Wait for valid ntp response.");
+  while((now = time(nullptr)) < NTP_MIN_VALID_EPOCH) {
+    blink(500);
+    Serial.print(".");
+  }
+  Serial.println();
+}
 
 // blink with delay
 void blink(unsigned int ms)
@@ -146,6 +207,25 @@ void blink(unsigned int ms)
   delay(half);
   digitalWrite(pBuildinLed, HIGH);
   delay(half);
+}
+
+void readBMEData() {
+  if (bmeAvailable) {
+    bmeData.timestamp = time(nullptr);
+    bmeData.humidity = bme.readHumidity();
+    bmeData.pressure = bme.readPressure();
+    bmeData.temperature = bme.readTemperature();
+
+    if (bmeDataRetained.length() == 0 
+      || bmeData.timestamp - bmeDataRetained.front().timestamp > 3600) {
+        // retain every hour or immidiatly for the first.
+        bmeDataRetained.push_front(bmeData);
+        // truncate if enough
+        if (bmeDataRetained.length() > bmeDataRetention) {
+          bmeDataRetained.pop_back();
+        }
+    }
+  }
 }
 
 void setup() {
@@ -163,13 +243,20 @@ void setup() {
   // then init context driven pins.
   pinMode(pFan, OUTPUT);
   analogWrite(pFan, context.fanSpeed);
+
+  // init bme
+  if (!bme.begin(0x76)) {
+    Serial.println("BME280 missing!");
+    bmeAvailable = false;
+  } else {
+    Serial.println("BME280 Initialized.");
+    bmeAvailable = true;
+  }
   
   // connect wifi
   Serial.println("Connecting");
   WiFi.hostname(hostname);
   WiFi.begin(ssid, pass);
-
-  // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
     blink(500);
     Serial.print(".");
@@ -179,6 +266,8 @@ void setup() {
   Serial.println(ssid);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+  Serial.print("Hostname: ");
+  Serial.printf("http://%s/\n", hostname);
   
   // AutoReconnect
   WiFi.setAutoReconnect(true);
@@ -189,6 +278,12 @@ void setup() {
   { 
     Serial.println("MDNS responder started"); 
   }
+
+  // initialize ntp
+  initNtp();
+
+  // read initial bme after ntp init.
+  readBMEData();
 
   // configure routes
   configureRoutes();
@@ -205,4 +300,12 @@ void loop() {
   
   // handle client requests
   server.handleClient();
+
+  if (bmeAvailable && millis() % 2000 == 0) {
+    readBMEData();
+  }
+
+  if (millis() % 60000 == 0) {
+    initNtp();
+  }
 }
