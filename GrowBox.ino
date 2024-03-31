@@ -20,6 +20,8 @@ const char* pass = SECRET_PASS;    // your network password
 ESP8266WebServer server(80);
 
 // Pins
+  const int pBuildinLed = LED_BUILTIN;
+
   const int pFan = D0;
   // TODO: BME280!, Supersonic? (plant height), Soil moisture?, EC / PH?, 
   // pumps/fert/water?, 
@@ -74,11 +76,11 @@ void serverSendContext() {
     server.send(200, "application/json", result.c_str());
 }
 
-bool serverParseJson(JSONVar* target) {
-  JSONVar jsonInput = JSON.parse(server.arg("plain")); 
+bool serverParseJson(JSONVar* jsonInput) {
+  *jsonInput = JSON.parse(server.arg("plain")); 
  
   // JSON.typeof(jsonVar) can be used to get the type of the variable 
-  if (JSON.typeof(jsonInput) == "undefined") { 
+  if (JSON.typeof(*jsonInput) == "undefined") { 
     Serial.println(parsingFailed);
     server.send(400, "text/plain", parsingFailed);
     return false; 
@@ -97,7 +99,7 @@ void handleRoot() {
 }
 
 void handleFanSet() {
-  Serial.println("Handling Relay Request"); 
+  Serial.println("Handling Fan Set Request"); 
   JSONVar jsonInput;
   if (!serverParseJson(&jsonInput))
     return;
@@ -135,22 +137,41 @@ void configureRoutes() {
 
 // SETUP / LOOP #########################################
 
+// blink with delay
+void blink(unsigned int ms)
+{
+  unsigned int half = ms / 2;
+
+  digitalWrite(pBuildinLed, LOW);
+  delay(half);
+  digitalWrite(pBuildinLed, HIGH);
+  delay(half);
+}
+
 void setup() {
+  // static pin init.
+  pinMode(pBuildinLed, OUTPUT);
+  digitalWrite(pBuildinLed, HIGH);
+  // serial
   Serial.begin(115200);
   Serial.println("");
   Serial.flush();
+
+  // init context
   contextInit();
 
+  // then init context driven pins.
   pinMode(pFan, OUTPUT);
   analogWrite(pFan, context.fanSpeed);
   
+  // connect wifi
   Serial.println("Connecting");
   WiFi.hostname(hostname);
   WiFi.begin(ssid, pass);
 
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    blink(500);
     Serial.print(".");
   }
   Serial.println("");
@@ -163,15 +184,19 @@ void setup() {
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
   
+  // start mdns responder hostname is better than ip ;)
   if (MDNS.begin(hostname)) 
   { 
     Serial.println("MDNS responder started"); 
   }
 
+  // configure routes
   configureRoutes();
 
+  // launch server.
   server.begin();
   Serial.println("HTTP server started");
+  blink(2000);
 }
 
 void loop() {

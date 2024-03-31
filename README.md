@@ -5,6 +5,18 @@
 # GrowBox
 Model: <a target="_blank" href="https://www.amazon.de/gp/search?ie=UTF8&tag=emmuss-21&linkCode=ur2&linkId=709ebbc777fc71d4af2c47dd75e933fe&camp=1638&creative=6742&index=computers&keywords=MARS HYDRO TS1000 Growbox Kit">MARS HYDRO TS1000 Growbox Kit</a>
 
+This project aims to Automate GrowBoxes in order to make the freshes and biggest fruits / flowers of your plants. 
+#### Working Features
+ - Inline Fan Control for the analog fan.
+
+#### Planned Features
+ - Humidity / Temperature / Pressure GY-BME280.
+ - Plant height, Supersonic.
+ - Pump control for fertilizer, water. 
+ - Water warning, via soil moisture? _Unclear if this can't be just calculated way better than probed._
+ - EC / PH, _as the sensors are quite expensive i might skip this try or push it way back the road._
+
+
 ## Features
 ### API
 API definition of the GrowBox, API is using JSON for data and plain text for errors. 
