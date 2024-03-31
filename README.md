@@ -3,7 +3,7 @@
 </div>
 
 # GrowBox
-Model: <a target="_blank" href="https://www.amazon.de/gp/search?ie=UTF8&tag=emmuss-21&linkCode=ur2&linkId=709ebbc777fc71d4af2c47dd75e933fe&camp=1638&creative=6742&index=computers&keywords=MARS HYDRO TS1000 Growbox Kit">MARS HYDRO TS1000 Growbox Kit</a>
+Model: <a target="_blank" href="https://amzn.to/3x9uhFN">MARS HYDRO TS1000 Growbox Kit</a>
 
 This project aims to Automate GrowBoxes in order to make the freshes and biggest fruits / flowers of your plants. 
 #### Working Features
@@ -65,13 +65,22 @@ The current context.
     <img src="./res/board-config.png" width="400" />
 </div>
 
+## Inline Fan Fritzing
+<a href="./InlineFan.fzz">
+    <img src="./res/InlineFan_Steckplatine.png">
+</a>
+
 ### Amazon Basket
 
 |Item|Description|
 |-|-|
-| <a target="_blank" href="https://www.amazon.de/gp/search?ie=UTF8&tag=emmuss-21&linkCode=ur2&linkId=c248904b195458de5fac95c309a80db7&camp=1638&creative=6742&index=computers&keywords=AZ-Delivery D1 Mini">ESP-8622 D1 Mini</a> |  D1 Mini to operate the Web-API. |
-| <a target="_blank" href="https://www.amazon.de/gp/search?ie=UTF8&tag=emmuss-21&linkCode=ur2&linkId=b5f99c86871cf499b06743e0fd7af662&camp=1638&creative=6742&index=computers&keywords=Transistor Kit BC337">Transistor BC337</a> |  A BC337 transistor.  |
-| <a target="_blank" href="https://www.amazon.de/gp/search?ie=UTF8&tag=emmuss-21&linkCode=ur2&linkId=88a59624d857f796cf99519988729319&camp=1638&creative=6742&index=computers&keywords=Resistor Kit 100Ohm">100Ohm Resistor</a> |  A 100Ohm resistor.  |
-| <a target="_blank" href="https://www.amazon.de/gp/search?ie=UTF8&tag=emmuss-21&linkCode=ur2&linkId=d2b48a684c699222c0691b4811bbffe6&camp=1638&creative=6742&index=computers&keywords=Silicon Cableset 30AWG">Some cables</a> |  I always take silicone wrapped cables because of their heat resistance and general durability.  |
+| <a target="_blank" href="https://amzn.to/3TDTPma">ESP-8622 D1 Mini</a> |  D1 Mini to operate the Web-API. |
+| <a target="_blank" href="https://amzn.to/4avrZPI">Transistor BC337</a> |  A BC337 transistor.  |
+| <a target="_blank" href="https://amzn.to/4aB79hM">100Ohm Resistor</a> |  A 100Ohm resistor.  |
+| <a target="_blank" href="https://amzn.to/3VyUdVE">Some cables</a> |  I always take silicone wrapped cables because of their heat resistance and general durability.  
+| <a target="_blank" href="https://amzn.to/3J1IyHe">24v Stepdown</a> | Any stepdown converter from 24v to 5v. |
+
+
+
 
 _Those are affiliate links, use them if you want to support me :)_
