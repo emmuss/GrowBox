@@ -99,7 +99,7 @@ const char HTML_INDEX[] PROGMEM = R"=====(
     </div>
   </main>
   <script>
-    const urlPrefix = "http://growbox01/"
+    const urlPrefix = ""
     let gbChart = undefined;
     let updateTimout = undefined;
     let fanSliderLastInput = undefined;
