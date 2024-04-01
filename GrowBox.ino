@@ -1,4 +1,4 @@
-#include <QList.h>
+#include <List.hpp>
 #include <Wire.h>
 #include <Arduino_JSON.h>
 #include <ESP8266WiFi.h>
@@ -8,8 +8,11 @@
 #include <EEPROM.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 
 #include "index.h"
+#include "favicon.h"
 
 #include "arduino_secrets.h" 
 // ######################################################
@@ -48,7 +51,7 @@ struct BMEData {
 const int BME_DATA_SIZE = sizeof(BMEData);
 BMEData bmeData;
 const unsigned char bmeDataRetention = 24;
-QList<BMEData> bmeDataRetained;
+List<BMEData> bmeDataRetained;
 
 // Context
 struct Context
@@ -111,7 +114,7 @@ void serverSendContext() {
       if (bmeAvailable) {
         result += ", \"bme\": " + bmeToJson(bmeData);
         result += ", \"bmeRetained\": [";
-        for(int i = 0; i < bmeDataRetained.size(); i++) {
+        for(int i = 0; i < bmeDataRetained.getSize(); i++) {
            result += (i != 0 ? ", " : "") + bmeToJson(bmeDataRetained[i]);
         }
         result += "]";
@@ -178,8 +181,13 @@ void handleNotFound() {
   server.send(404, "text/plain", message);
 }
 
+void handleFavIcon() {
+  server.send(200, "image/x-icon", FAV_ICON);
+}
+
 void configureRoutes() {
   server.on("/", handleRoot);
+  server.on("/favicon.ico", handleFavIcon);
   server.on("/get", handleGet);
   server.on("/fan/set", HTTP_POST, handleFanSet);
   server.onNotFound(handleNotFound);
@@ -216,16 +224,51 @@ void readBMEData() {
     bmeData.pressure = bme.readPressure();
     bmeData.temperature = bme.readTemperature();
 
-    if (bmeDataRetained.length() == 0 
-      || bmeData.timestamp - bmeDataRetained.front().timestamp > 3600) {
+    if (bmeDataRetained.getSize() == 0 
+      || bmeData.timestamp - bmeDataRetained[0].timestamp > 3600) {
         // retain every hour or immidiatly for the first.
-        bmeDataRetained.push_front(bmeData);
+        bmeDataRetained.addFirst(bmeData);
         // truncate if enough
-        if (bmeDataRetained.length() > bmeDataRetention) {
-          bmeDataRetained.pop_back();
+        if (bmeDataRetained.getSize() > bmeDataRetention) {
+          bmeDataRetained.removeLast();
         }
     }
   }
+}
+
+void setupOTA() {
+  Serial.println("Initializing OTA.");
+  ArduinoOTA.onStart([]() {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH) {
+      type = "sketch";
+    } else { // U_FS
+      type = "filesystem";
+    }
+    Serial.println("Start updating " + type);
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) {
+      Serial.println("Auth Failed");
+    } else if (error == OTA_BEGIN_ERROR) {
+      Serial.println("Begin Failed");
+    } else if (error == OTA_CONNECT_ERROR) {
+      Serial.println("Connect Failed");
+    } else if (error == OTA_RECEIVE_ERROR) {
+      Serial.println("Receive Failed");
+    } else if (error == OTA_END_ERROR) {
+      Serial.println("End Failed");
+    }
+  });
+  ArduinoOTA.begin();
+  Serial.println("OTA Available.");
 }
 
 void setup() {
@@ -290,6 +333,9 @@ void setup() {
 
   // launch server.
   server.begin();
+
+  setupOTA();
+
   Serial.println("HTTP server started");
   blink(2000);
 }
@@ -297,6 +343,9 @@ void setup() {
 void loop() {
   // update mdns
   MDNS.update();
+
+  // handle ota
+  ArduinoOTA.handle();
   
   // handle client requests
   server.handleClient();

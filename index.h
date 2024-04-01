@@ -9,6 +9,8 @@ const char HTML_INDEX[] PROGMEM = R"=====(
   <meta name="description" content="" />
   <meta name="author" content="" />
   <title>GrowBox - Loading</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+
   <link href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
@@ -18,6 +20,36 @@ const char HTML_INDEX[] PROGMEM = R"=====(
   <script src="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/umd/simple-datatables.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/moment@^2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@^1"></script>
+  <style type="text/css">
+    @-webkit-keyframes rotating /* Safari and Chrome */ {
+      to {
+        -webkit-transform: rotate(0deg);
+        -o-transform: rotate(0deg);
+        transform: rotate(0deg);
+      }
+      from {
+        -webkit-transform: rotate(360deg);
+        -o-transform: rotate(360deg);
+        transform: rotate(360deg);
+      }
+    }
+    @keyframes rotating {
+      to {
+        -ms-transform: rotate(0deg);
+        -moz-transform: rotate(0deg);
+        -webkit-transform: rotate(0deg);
+        -o-transform: rotate(0deg);
+        transform: rotate(0deg);
+      }
+      from {
+        -ms-transform: rotate(360deg);
+        -moz-transform: rotate(360deg);
+        -webkit-transform: rotate(360deg);
+        -o-transform: rotate(360deg);
+        transform: rotate(360deg);
+      }
+    }
+  </style>
 </head>
 
 <body>
@@ -45,36 +77,101 @@ const char HTML_INDEX[] PROGMEM = R"=====(
             <div class="card-header">
               History
             </div>
-            <div class="card-body"><canvas id="gbChart" width="100%" height="80"></canvas></div>
+            <div class="card-body">
+              <canvas id="gbChart" width="100%" height="80"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-xl-6">
+          <div class="card mb-4">
+            <div class="card-header">
+              <i class="fa-solid fa-fan" id="fanIcon"></i>
+              Fan Control
+            </div>
+            <div class="card-body">
+              <input id="fanSlider" type="range" min="0" max="255" step="1" value="15" data-bind="value: Percent" style="width: 100%;"/>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </main>
   <script>
-    const urlPrefix = ""
-
+    const urlPrefix = "http://growbox01/"
+    let gbChart = undefined;
+    let updateTimout = undefined;
+    let fanSliderLastInput = undefined;
     $(document).ready(() => {
-      $.get(urlPrefix + "get").then((data) => {
-        if (!data) {
-          return;
-        }
-        $("#gbTitle").text(data.me);
-        $("#gbTemperature").text(data.bme.temperature);
-        $("#gbHumidity").text(data.bme.humidity);
-        $("#gbPressure").text((data.bme.pressure / 100).toFixed(2));
-        document.title = data.me;
+      const fanSlider = $("#fanSlider");
+      fanSlider.on("input", debounce(() => setFanSpeed(fanSlider.val())));
+      fanSlider.on("input", () => {
+        fanSliderLastInput = new Date().getTime();
+      });
+      update();
+    });
 
-        const tempData = [];
-        const humData = [];
-        const presData = [];
-        data.bmeRetained.forEach(bme => {
-          const x = new Date(bme.timestamp * 1000);
-          tempData.push({ x, y: bme.temperature });
-          humData.push({ x, y: bme.humidity });
-          presData.push({ x, y: (bme.pressure / 100).toFixed(2) });
-        });
-        const gbTemperatureChart = new Chart(document.getElementById("gbChart"), {
+    beginUpdate = () => {
+      if (updateTimout) {
+        clearTimeout(updateTimout);
+      }
+      updateTimout = setTimeout(() => update(), 2000);
+    }
+    update = () => {
+      $.get(urlPrefix + "get").then((data) => {
+        updateData(data);
+        beginUpdate();
+      });
+    };
+    updateData = (data) => {
+      if (!data) {
+        return;
+      }
+      // update page title
+      document.title = data.me;
+      $("#gbTitle").text(data.me);
+      // update current bme data
+      $("#gbTemperature").text(data.bme.temperature.toFixed(1));
+      $("#gbHumidity").text(data.bme.humidity.toFixed(1));
+      $("#gbPressure").text((data.bme.pressure / 100).toFixed(1));
+
+      // update chart data
+      const tempData = [];
+      const humData = [];
+      const presData = [];
+      data.bmeRetained.forEach(bme => {
+        const x = new Date(bme.timestamp * 1000);
+        tempData.push({ x, y: bme.temperature.toFixed(2) });
+        humData.push({ x, y: bme.humidity.toFixed(2) });
+        presData.push({ x, y: (bme.pressure / 100).toFixed(2) });
+      });
+      if (gbChart) {
+        gbChart.data.datasets[0].data = tempData;
+        gbChart.data.datasets[1].data = humData;
+        gbChart.update();
+      }
+      
+      // update slider
+      if (!fanSliderLastInput || (new Date().getTime() - fanSliderLastInput) > 1000)
+      {
+        const fanSlider = $("#fanSlider");
+        fanSlider.val(255 - data.fanSpeed);
+      }
+      updateFanIconAnimation(data.fanSpeed);
+    };
+    updateFanIconAnimation = (fanSpeed) => {
+      const fanIcon = $("#fanIcon");
+      let rotationSpeed = (fanSpeed / 255) * 3;
+      rotationSpeed = rotationSpeed < 0.3 ? 0.3 : rotationSpeed;
+      if (rotationSpeed < 3) {
+        fanIcon.css("animation", `rotating ${rotationSpeed}s linear infinite`);
+      } else {
+        fanIcon.css("animation", "");
+      }
+    };
+    createGrowBoxChart = () => {
+        return new Chart(document.getElementById("gbChart"), {
           type: 'line',
           data: {
             datasets: [{
@@ -89,7 +186,6 @@ const char HTML_INDEX[] PROGMEM = R"=====(
               pointHoverBackgroundColor: "rgba(17,214,0,1)",
               pointHitRadius: 50,
               pointBorderWidth: 2,
-              data: tempData,
               yAxisID: "y",
             },{
               label: "Humidity",
@@ -103,7 +199,6 @@ const char HTML_INDEX[] PROGMEM = R"=====(
               pointHoverBackgroundColor: "rgba(2,117,216,1)",
               pointHitRadius: 50,
               pointBorderWidth: 2,
-              data: humData,
               yAxisID: "y1",
             }],
           },
@@ -119,15 +214,21 @@ const char HTML_INDEX[] PROGMEM = R"=====(
                 },
               },
               y: {
+                min: 15,
+                max: 35,
                 ticks: {
+                    stepSize: 2,
                     callback: function(value, index, ticks) {
-                        return value + "°C";
+                        return value.toFixed(1) + "°C";
                     },
                 },
               },
               y1: {
                 position: 'right',
+                min: 0,
+                max: 100,
                 ticks: {
+                  stepSize: 10,
                     callback: function(value, index, ticks) {
                         return value + "%";
                     },
@@ -145,8 +246,20 @@ const char HTML_INDEX[] PROGMEM = R"=====(
             },
           }
         });
-      });
-    });
+    }
+    gbChart = createGrowBoxChart();
+    setFanSpeed = (speed) => {
+      const s = 255 - speed;
+      updateFanIconAnimation(s);
+      $.post(urlPrefix + "fan/set", JSON.stringify({ "fanSpeed": s }));
+    };
+    debounce = (func, timeout = 300) => {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => { func.apply(this, args); }, timeout);
+      };
+    };
   </script>
 </body>
 
