@@ -121,7 +121,7 @@
       $.get(urlPrefix + "get").then((data) => {
         updateData(data);
         beginUpdate();
-      });
+      }, () => beginUpdate());
     };
     updateData = (data) => {
       if (!data) {

@@ -10,6 +10,8 @@
 #include <Adafruit_BME280.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include "FS.h"
+#include <LittleFS.h>
 
 #include "index.h"
 #include "favicon.h"
@@ -50,7 +52,11 @@ struct BMEData {
 };
 const int BME_DATA_SIZE = sizeof(BMEData);
 BMEData bmeData;
+// time between retained measurements.
+const int bmeDataRetentionDelay = 10;
+// max data retention.
 const unsigned char bmeDataRetention = 24;
+// retained bme data.
 List<BMEData> bmeDataRetained;
 
 // Context
@@ -58,13 +64,13 @@ struct Context
 {
   // Fan Speed, 255 = OFF, 0 = MAX.
   unsigned char fanSpeed;
-  // Timestamp for bme280 readings.
 };
-int CONTEXT_SIZE = sizeof(Context);
+const int CONTEXT_SIZE = sizeof(Context);
 const char * CONTEXT_MARKER = "GROW";
-int CONTEXT_MARKER_SIZE = 4;
+const int CONTEXT_MARKER_SIZE = 4;
 Context context;
 bool bmeAvailable = false;
+bool fsMounted = false;
 
 // Errors
 const char * parsingFailed = "Parsing JSON input failed!";
@@ -72,7 +78,6 @@ const char * invalidRequest = "Invalid Request.";
 
 
 // CONTEXT ##############################################
-
 void contextInit() {
   EEPROM.begin(512);
   if (memcmp(CONTEXT_MARKER, EEPROM.getConstDataPtr(), CONTEXT_MARKER_SIZE) != 0) {
@@ -85,6 +90,7 @@ void contextInit() {
     return;
   }
   memcpy(&context, EEPROM.getConstDataPtr() + CONTEXT_MARKER_SIZE, CONTEXT_SIZE);
+  
   Serial.println("Context loaded from EEPROM");
 }
 
@@ -92,6 +98,52 @@ void contextSaveChanges() {
   memcpy(EEPROM.getDataPtr(), CONTEXT_MARKER, CONTEXT_MARKER_SIZE);
   memcpy(EEPROM.getDataPtr() + CONTEXT_MARKER_SIZE, &context, CONTEXT_SIZE);
   EEPROM.commit();
+}
+
+void bmeRetentionInit() {
+  Serial.print("bmeRetentionInit ");
+  File file = LittleFS.open("bmeretention.bin", "r");
+  if (!file) {
+      Serial.println("- failed to open file for reading");
+      return;
+  }
+  int size = file.read();
+  for (int i = 0; i < size; i++)
+  {
+    BMEData data;
+    file.read((uint8_t*)&data, BME_DATA_SIZE);
+    bmeDataRetained.add(data);
+  }
+  file.close();    
+  Serial.println("- file written");
+}
+
+void bmeRetentionDelete() {
+  LittleFS.remove("bmeretention.bin");
+  bmeDataRetained.clear();
+}
+
+void bmeRetentionSaveChanges() {
+  if (bmeDataRetained.getSize() <= 0) {
+    return;
+  }
+  Serial.print("bmeRetentionSaveChanges ");
+  File file = LittleFS.open("bmeretention.bin", "w");
+  if (!file) {
+      Serial.println("- failed to open file for writing");
+      return;
+  }
+
+  int size = bmeDataRetained.getSize();
+
+  file.write(size);
+  for (int i = 0; i < size; i++)
+  {
+    BMEData data = bmeDataRetained[i];
+    file.write((uint8_t*)&data, BME_DATA_SIZE);
+  }
+  file.close();    
+  Serial.println("- file written");
 }
 
 // SERVER I/O ###########################################
@@ -110,6 +162,7 @@ void serverSendContext() {
     String result = 
      "{";
         result += "\"me\": \"" + String(hostname) + "\",";
+        result += "\"fsMounted\": \"" + String(fsMounted) + "\",";
         result += "\"fanSpeed\":" + String(context.fanSpeed);
       if (bmeAvailable) {
         result += ", \"bme\": " + bmeToJson(bmeData);
@@ -181,14 +234,20 @@ void handleNotFound() {
   server.send(404, "text/plain", message);
 }
 
+void handleClear() {
+  bmeRetentionDelete();
+  serverSendContext();
+}
+
 void handleFavIcon() {
-  server.send(200, "image/x-icon", FAV_ICON);
+  server.send(200, "image/x-icon", FAV_ICON, FAV_ICON_SIZE);
 }
 
 void configureRoutes() {
   server.on("/", handleRoot);
   server.on("/favicon.ico", handleFavIcon);
   server.on("/get", handleGet);
+  server.on("/clear", handleClear);
   server.on("/fan/set", HTTP_POST, handleFanSet);
   server.onNotFound(handleNotFound);
 }
@@ -225,13 +284,14 @@ void readBMEData() {
     bmeData.temperature = bme.readTemperature();
 
     if (bmeDataRetained.getSize() == 0 
-      || bmeData.timestamp - bmeDataRetained[0].timestamp > 3600) {
+      || bmeData.timestamp - bmeDataRetained[0].timestamp > bmeDataRetentionDelay) {
         // retain every hour or immidiatly for the first.
         bmeDataRetained.addFirst(bmeData);
         // truncate if enough
         if (bmeDataRetained.getSize() > bmeDataRetention) {
           bmeDataRetained.removeLast();
         }
+        bmeRetentionSaveChanges();
     }
   }
 }
@@ -251,7 +311,7 @@ void setupOTA() {
     Serial.println("\nEnd");
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    Serial.printf("Progress: %u%%\n", (progress / (total / 100)));
   });
   ArduinoOTA.onError([](ota_error_t error) {
     Serial.printf("Error[%u]: ", error);
@@ -279,6 +339,15 @@ void setup() {
   Serial.begin(115200);
   Serial.println("");
   Serial.flush();
+  if(LittleFS.begin()) {
+    Serial.println("LittleFS Mount Failed");
+    fsMounted = true;
+  } else {
+    fsMounted = false;
+  }
+
+  // init retention
+  bmeRetentionInit();
 
   // init context
   contextInit();
