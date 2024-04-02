@@ -7,10 +7,11 @@ Model: <a target="_blank" href="https://amzn.to/3x9uhFN">MARS HYDRO TS1000 Growb
 
 This project aims to Automate GrowBoxes in order to make the freshes and biggest fruits / flowers of your plants. 
 #### Working Features
+ - WebClient on ESP.
  - Inline Fan Control for the analog fan.
+ - Humidity / Temperature / Pressure <a target="_blank" href="https://amzn.to/3TYbDtB">GY-BME280</a>.
 
 #### Planned Features
- - Humidity / Temperature / Pressure GY-BME280.
  - Plant height, Supersonic.
  - Pump control for fertilizer, water. 
  - Water warning, via soil moisture? _Unclear if this can't be just calculated way better than probed._
@@ -18,21 +19,61 @@ This project aims to Automate GrowBoxes in order to make the freshes and biggest
 
 
 ## Features
+### WebClient
+<img src="./res/client.png" width="200" />
+
+WebClient control fan speed and read current or retained conditions obtained by the <a target="_blank" href="https://amzn.to/3TYbDtB">GY-BME280</a>.
+
 ### API
 API definition of the GrowBox, API is using JSON for data and plain text for errors. 
 
 <hr/>
 
-#### Index / Root
+#### Get
 Returns the current context. 
+|Context||
+|-|-|
+|me|hostname|
+|fsMounted|file system mounted 1 / 0|
+|fanSpeed|the fan speed, 255 = OFF, 0 = MAX|
+|bme|current bme data|
+|bmeRetained|retained bme readings|
 
-![POST](https://img.shields.io/badge/GET-blue)<br/>
-`http://growbox01/`
+![GET](https://img.shields.io/badge/GET-blue)<br/>
+`http://growbox01/get`
 #### Response 
 ![200](https://img.shields.io/badge/200-green)
 ```json
 {
-    "fanSpeed": 150
+    "me": "GrowBox01",
+    "fsMounted": "1",
+    "fanSpeed": 255,
+    "bme": {
+        "temperature": 20.80,
+        "humidity": 45.48,
+        "pressure": 99961.20,
+        "timestamp": 1712060127
+    },
+    "bmeRetained": [
+        {
+            "temperature": 20.83,
+            "humidity": 44.85,
+            "pressure": 99960.22,
+            "timestamp": 1712057103
+        },
+        {
+            "temperature": 20.85,
+            "humidity": 45.49,
+            "pressure": 99970.94,
+            "timestamp": 1712053501
+        },
+        {
+            "temperature": 20.90,
+            "humidity": 47.11,
+            "pressure": 99957.71,
+            "timestamp": 1712049899
+        }
+    ]
 }
 ```
 <hr/>
@@ -55,7 +96,35 @@ The current context.
 
 ```json
 {
-    "fanSpeed": 150
+    "me": "GrowBox01",
+    "fsMounted": "1",
+    "fanSpeed": 255,
+    "bme": {
+        "temperature": 20.80,
+        "humidity": 45.48,
+        "pressure": 99961.20,
+        "timestamp": 1712060127
+    },
+    "bmeRetained": [
+        {
+            "temperature": 20.83,
+            "humidity": 44.85,
+            "pressure": 99960.22,
+            "timestamp": 1712057103
+        },
+        {
+            "temperature": 20.85,
+            "humidity": 45.49,
+            "pressure": 99970.94,
+            "timestamp": 1712053501
+        },
+        {
+            "temperature": 20.90,
+            "humidity": 47.11,
+            "pressure": 99957.71,
+            "timestamp": 1712049899
+        }
+    ]
 }
 ```
 
@@ -81,6 +150,7 @@ If you dissassemble the Fan you will find GND, VCC, R+ R- as pins on the driver 
 | <a target="_blank" href="https://amzn.to/4aB79hM">100Ohm Resistor</a> |  A 100Ohm resistor.  |
 | <a target="_blank" href="https://amzn.to/3VyUdVE">Some cables</a> |  I always take silicone wrapped cables because of their heat resistance and general durability.  
 | <a target="_blank" href="https://amzn.to/3J1IyHe">24v Stepdown</a> | Any stepdown converter from 24v to 5v. |
+| <a target="_blank" href="https://amzn.to/3TYbDtB">GY-BME280</a> | GY-BME280 sensor for humidity / temperature / pressure. |
 
 
 

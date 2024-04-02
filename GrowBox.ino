@@ -53,9 +53,9 @@ struct BMEData {
 const int BME_DATA_SIZE = sizeof(BMEData);
 BMEData bmeData;
 // time between retained measurements.
-const int bmeDataRetentionDelay = 10;
+const int bmeDataRetentionDelay = 3600; // 1 hr
 // max data retention.
-const unsigned char bmeDataRetention = 24;
+const unsigned char bmeDataRetention = 24; // 24 samples so we get 1 day retained bme data
 // retained bme data.
 List<BMEData> bmeDataRetained;
 
