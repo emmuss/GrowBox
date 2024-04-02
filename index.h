@@ -49,52 +49,49 @@ const char HTML_INDEX[] PROGMEM = R"=====(
         transform: rotate(360deg);
       }
     }
+    main {
+      max-width: 600px;
+      padding-top: 1.5rem;
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+    }
   </style>
 </head>
 
 <body>
-  <main class="mt-4">
-    <div class="container-fluid px-4">
-      <div id="bmeCardsContainer" class="row">
-        <div class="col-xl-3 col-md-6">
-          <div class="card mb-4">
-            <div class="card-body">
-              <div class="text-center mb-3">
-                <p class="h2 mb-1" id="gbTitle">GrowBox - Loading data...</p>
-                <p class="display-1 mb-1"><span id="gbTemperature">22.5</span> °C</p>
-                <span class=""><i class="fa-solid fa-droplet"></i> <span id="gbHumidity">90</span>%</span>
-                <span class="mx-2">|</span>
-                <span class=""><span id="gbPressure">123</span> hpa</span>
-              </div>
-            </div>
-          </div>
+  <main>
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="text-center mb-3">
+          <p class="h2 mb-1" id="gbTitle">GrowBox - Loading data...</p>
+          <p class="display-1 mb-1"><span id="gbTemperature">22.5</span> °C</p>
+          <span class=""><i class="fa-solid fa-droplet"></i> <span id="gbHumidity">90</span>%</span>
+          <span class="mx-2">|</span>
+          <span class=""><span id="gbPressure">123</span> hpa</span>
         </div>
       </div>
-      <!-- CHARTS -->
-      <div class="row">
-        <div class="col-xl-6">
-          <div class="card mb-4">
-            <div class="card-header">
-              History
-            </div>
-            <div class="card-body">
-              <canvas id="gbChart" width="100%" height="80"></canvas>
-            </div>
-          </div>
-        </div>
+    </div>
+    <!-- CHART -->
+    <div class="card mb-4">
+      <div class="card-header">
+        History
       </div>
-      <div class="row">
-        <div class="col-xl-6">
-          <div class="card mb-4">
-            <div class="card-header">
-              <i class="fa-solid fa-fan" id="fanIcon"></i>
-              Fan Control
-            </div>
-            <div class="card-body">
-              <input id="fanSlider" type="range" min="0" max="255" step="1" value="15" data-bind="value: Percent" style="width: 100%;"/>
-            </div>
-          </div>
-        </div>
+      <div class="card-body">
+        <canvas id="gbChart" width="100%" height="80"></canvas>
+      </div>
+    </div>
+    <!-- FAN -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <i class="fa-solid fa-fan" id="fanIcon"></i>
+        Fan Control
+      </div>
+      <div class="card-body">
+        <input id="fanSlider" type="range" min="0" max="255" step="1" value="15" data-bind="value: Percent" style="width: 100%;"/>
       </div>
     </div>
   </main>
