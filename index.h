@@ -91,7 +91,17 @@ const char HTML_INDEX[] PROGMEM = R"=====(
         Fan Control
       </div>
       <div class="card-body">
-        <input id="fanSlider" type="range" min="0" max="255" step="1" value="15" data-bind="value: Percent" style="width: 100%;"/>
+        <input id="fanSlider" type="range" min="0" max="255" step="1" value="15" style="width: 100%;"/>
+      </div>
+    </div>
+    <!-- LIGHT -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <i class="fa-solid fa-sun" id="lightIcon"></i>
+        Light Control
+      </div>
+      <div class="card-body">
+        <input id="lightSlider" type="range" min="-190" max="0" step="19" value="-190" style="width: 100%;"/>
       </div>
     </div>
   </main>
@@ -100,11 +110,17 @@ const char HTML_INDEX[] PROGMEM = R"=====(
     let gbChart = undefined;
     let updateTimout = undefined;
     let fanSliderLastInput = undefined;
+    let lightSliderLastInput = undefined;
     $(document).ready(() => {
       const fanSlider = $("#fanSlider");
       fanSlider.on("input", debounce(() => setFanSpeed(fanSlider.val())));
       fanSlider.on("input", () => {
         fanSliderLastInput = new Date().getTime();
+      });
+      const lightSlider = $("#lightSlider");
+      lightSlider.on("input", debounce(() => setLight(lightSlider.val())));
+      lightSlider.on("input", () => {
+        lightSliderLastInput = new Date().getTime();
       });
       update();
     });
@@ -129,20 +145,26 @@ const char HTML_INDEX[] PROGMEM = R"=====(
       document.title = data.me;
       $("#gbTitle").text(data.me);
       // update current bme data
-      $("#gbTemperature").text(data.bme.temperature.toFixed(1));
-      $("#gbHumidity").text(data.bme.humidity.toFixed(1));
-      $("#gbPressure").text((data.bme.pressure / 100).toFixed(1));
+      if (data.bme) {
+        $("#gbTemperature").text(data.bme.temperature.toFixed(1));
+        $("#gbHumidity").text(data.bme.humidity.toFixed(1));
+        $("#gbPressure").text((data.bme.pressure / 100).toFixed(1));
+      } else {
+        $("#gbTitle").text("No BME");
+      }
 
       // update chart data
       const tempData = [];
       const humData = [];
       const presData = [];
-      data.bmeRetained.forEach(bme => {
-        const x = new Date(bme.timestamp * 1000);
-        tempData.push({ x, y: bme.temperature.toFixed(2) });
-        humData.push({ x, y: bme.humidity.toFixed(2) });
-        presData.push({ x, y: (bme.pressure / 100).toFixed(2) });
-      });
+      if (data.bmeRetained) {
+        data.bmeRetained.forEach(bme => {
+          const x = new Date(bme.timestamp * 1000);
+          tempData.push({ x, y: bme.temperature.toFixed(2) });
+          humData.push({ x, y: bme.humidity.toFixed(2) });
+          presData.push({ x, y: (bme.pressure / 100).toFixed(2) });
+        });
+      }
       if (gbChart) {
         gbChart.data.datasets[0].data = tempData;
         gbChart.data.datasets[1].data = humData;
@@ -156,6 +178,13 @@ const char HTML_INDEX[] PROGMEM = R"=====(
         fanSlider.val(255 - data.fanSpeed);
       }
       updateFanIconAnimation(data.fanSpeed);
+      if (!lightSliderLastInput || (new Date().getTime() - lightSliderLastInput) > 1000)
+      {
+        const lightSlider = $("#lightSlider");
+        console.log("update slider val", (data.light - 40));
+        lightSlider.val((data.light - 40)*-1);
+      }
+      updateLightIconAnimation(data.light);
     };
     updateFanIconAnimation = (fanSpeed) => {
       const fanIcon = $("#fanIcon");
@@ -166,6 +195,14 @@ const char HTML_INDEX[] PROGMEM = R"=====(
       } else {
         fanIcon.css("animation", "");
       }
+    };
+    updateLightIconAnimation = (light) => {
+      const lightIcon = $("#lightIcon");
+      console.log("updateLightIconAnimation", light);
+      let lightColor = (255 - (light*0.5)) ;
+      console.log("color", lightColor);
+      lightColor = lightColor < 145 ? 0 : lightColor;
+      lightIcon.css("color", `rgb(${lightColor}, ${lightColor}, 0)`);
     };
     createGrowBoxChart = () => {
         return new Chart(document.getElementById("gbChart"), {
@@ -249,6 +286,14 @@ const char HTML_INDEX[] PROGMEM = R"=====(
       const s = 255 - speed;
       updateFanIconAnimation(s);
       $.post(urlPrefix + "fan/set", JSON.stringify({ "fanSpeed": s }));
+    };
+    setLight = (speed) => {
+      let s = (Number.parseFloat(speed)*-1 + 40);
+      s = s > 255 ? 255 : s;
+      s = s < 0   ? 0   : s;
+      console.log("update light ", s);
+      updateLightIconAnimation(s);
+      $.post(urlPrefix + "light/set", JSON.stringify({ "light": s }));
     };
     debounce = (func, timeout = 300) => {
       let timer;

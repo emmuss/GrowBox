@@ -10,6 +10,7 @@
 #include <Adafruit_BME280.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include <RTClib.h>
 #include "FS.h"
 #include <LittleFS.h>
 
@@ -24,7 +25,7 @@
 // # or    CTRL + N         (VSCode)                    #
 // ######################################################
 
-const char* hostname = "GrowBox01";
+const char* hostname = "GrowBoxTest";
 const char* ssid = SECRET_SSID;    // your network SSID (name)
 const char* pass = SECRET_PASS;    // your network password
 
@@ -40,6 +41,7 @@ Adafruit_BME280 bme;
   const int pBuildinLed = LED_BUILTIN;
 
   const int pFan = D0;
+  const int pLight = D5;
   // TODO: BME280!, Supersonic? (plant height), Soil moisture?, EC / PH?, 
   // pumps/fert/water?, 
 
@@ -64,6 +66,13 @@ struct Context
 {
   // Fan Speed, 255 = OFF, 0 = MAX.
   unsigned char fanSpeed;
+
+  unsigned char light;
+  int32_t sunrise;
+  int32_t sunDuration;
+  int32_t sunriseSetDuration;
+  unsigned char sunTargetLight;
+  bool sunScheduleEnabled;
 };
 const int CONTEXT_SIZE = sizeof(Context);
 const char * CONTEXT_MARKER = "GROW";
@@ -86,7 +95,14 @@ void contextInit() {
     
     // Fan Speed, 255 = OFF, 0 = MAX.
     context.fanSpeed = 255;
+    // light, 255 = OFF, 0 = MAX.
+    context.light = 255;
 
+    context.sunrise = 6 * 60 * 60; // 21600
+    context.sunDuration = 18 * 60 * 60; // 64800
+    context.sunriseSetDuration = 8 * 60; // 480
+    context.sunTargetLight = 255;
+    context.sunScheduleEnabled = true;
     return;
   }
   memcpy(&context, EEPROM.getConstDataPtr() + CONTEXT_MARKER_SIZE, CONTEXT_SIZE);
@@ -163,7 +179,15 @@ void serverSendContext() {
      "{";
         result += "\"me\": \"" + String(hostname) + "\",";
         result += "\"fsMounted\": \"" + String(fsMounted) + "\",";
+        result += "\"light\": " + String(context.light) + ",";
         result += "\"fanSpeed\":" + String(context.fanSpeed);
+        result += ", \"lightSchedule\": {";
+          result += " \"sunScheduleEnabled\" :" + String(context.sunScheduleEnabled);
+          result += ",\"sunrise\" :" + String(context.sunrise);
+          result += ",\"sunDuration\" :" + String(context.sunDuration);
+          result += ",\"sunriseSetDuration\" :" + String(context.sunriseSetDuration);
+          result += ",\"sunTargetLight\" :" + String(context.sunTargetLight);
+        result += "}";
       if (bmeAvailable) {
         result += ", \"bme\": " + bmeToJson(bmeData);
         result += ", \"bmeRetained\": [";
@@ -221,6 +245,73 @@ void handleFanSet() {
   serverSendInvalidRequest();
 }
 
+void handleLightSet() {
+  Serial.println("Handling Light Set Request"); 
+  JSONVar jsonInput;
+  if (!serverParseJson(&jsonInput))
+    return;
+   
+  if (jsonInput.hasOwnProperty("light")) { 
+    context.light = (unsigned char)jsonInput["light"];
+    Serial.print("light set to ");
+    Serial.println(context.light);
+    analogWrite(pLight, context.light);
+    contextSaveChanges();
+    serverSendContext();
+    return; 
+  }
+  serverSendInvalidRequest();
+}
+
+void handleLightScheduleSet() {
+  Serial.println("Handling Light Schedule Set Request"); 
+  JSONVar jsonInput;
+  if (!serverParseJson(&jsonInput))
+    return;
+
+  bool scheduleChanged = false;   
+  if (jsonInput.hasOwnProperty("sunrise")) { 
+    context.sunrise = (int32_t)jsonInput["sunrise"];
+    Serial.print("sunrise set to ");
+    Serial.println(context.sunrise);
+    scheduleChanged = true;
+  }
+   
+  if (jsonInput.hasOwnProperty("sunDuration")) { 
+    context.sunDuration = (int32_t)jsonInput["sunDuration"];
+    Serial.print("sunDuration set to ");
+    Serial.println(context.sunDuration);
+    scheduleChanged = true;
+  }
+   
+  if (jsonInput.hasOwnProperty("sunriseSetDuration")) { 
+    context.sunriseSetDuration = (int32_t)jsonInput["sunriseSetDuration"];
+    Serial.print("sunriseSetDuration set to ");
+    Serial.println(context.sunriseSetDuration);
+    scheduleChanged = true;
+  }
+   
+  if (jsonInput.hasOwnProperty("sunTargetLight")) { 
+    context.sunTargetLight = (unsigned char)jsonInput["sunTargetLight"];
+    Serial.print("sunTargetLight set to ");
+    Serial.println(context.sunTargetLight);
+    scheduleChanged = true;
+  }
+  if (jsonInput.hasOwnProperty("sunScheduleEnabled")) { 
+    context.sunScheduleEnabled = (bool)jsonInput["sunScheduleEnabled"];
+    Serial.print("sunScheduleEnabled set to ");
+    Serial.println(context.sunScheduleEnabled);
+    scheduleChanged = true;
+  }
+
+  if (scheduleChanged) {
+    contextSaveChanges();
+    serverSendContext();
+    return;
+  }
+  serverSendInvalidRequest();
+}
+
 void handleNotFound() {
   String message = "File Not Found\n\n";
   message += "URI: ";
@@ -249,6 +340,9 @@ void configureRoutes() {
   server.on("/get", handleGet);
   server.on("/clear", handleClear);
   server.on("/fan/set", HTTP_POST, handleFanSet);
+  server.on("/light/set", HTTP_POST, handleLightSet);
+  server.on("/light/schedule/set", HTTP_POST, handleLightScheduleSet);
+  
   server.onNotFound(handleNotFound);
 }
 
@@ -293,6 +387,48 @@ void readBMEData() {
         }
         bmeRetentionSaveChanges();
     }
+  }
+}
+
+void sunSchedule(DateTime now) {
+  DateTime lastRise = DateTime(now.year(), now.month(), now.day()-1, 0, 0, 0) + context.sunrise;
+  DateTime lastSet = lastRise + context.sunDuration;
+  DateTime rise = DateTime(now.year(), now.month(), now.day(), 0, 0, 0) + context.sunrise;
+  DateTime set = rise + context.sunDuration;
+  char buf[20];
+
+  if(lastSet > now) {
+    rise = lastRise;
+    set = lastSet;
+  }
+  
+  double target = 0;
+  bool riseOrSet = false;
+  int32_t riseDiff = (now - rise).totalseconds();
+  if (riseDiff > 0 && riseDiff <= context.sunriseSetDuration) {
+    target = (double)riseDiff / (double)context.sunriseSetDuration;
+    riseOrSet = true;
+  } 
+  int32_t setDiff = (now - (set - context.sunriseSetDuration)).totalseconds();
+  if (setDiff > 0 && setDiff <= context.sunriseSetDuration) {
+    target = 1.0 - ((double)setDiff / (double)context.sunriseSetDuration);
+    riseOrSet = true;
+  }
+
+  if (!riseOrSet) {
+    if (now >= rise && now < set) {
+      target = 1;
+    } else {
+      target = 0;
+    }
+  }
+
+  double dtl = target * (double)context.sunTargetLight;
+  char targetLight = context.sunTargetLight - dtl;
+  if (context.light != targetLight) {
+    context.light = targetLight;
+    analogWrite(pLight, context.light);
+    contextSaveChanges();
   }
 }
 
@@ -355,6 +491,8 @@ void setup() {
   // then init context driven pins.
   pinMode(pFan, OUTPUT);
   analogWrite(pFan, context.fanSpeed);
+  pinMode(pLight, OUTPUT);
+  analogWrite(pLight, context.light);
 
   // init bme
   if (!bme.begin(0x76)) {
@@ -409,7 +547,12 @@ void setup() {
   blink(2000);
 }
 
+time_t lastEpoch = 0;
 void loop() {
+  time_t epoch = time(nullptr);
+  DateTime now = DateTime(epoch);
+  bool epochChanged = epoch != lastEpoch;
+
   // update mdns
   MDNS.update();
 
@@ -419,11 +562,20 @@ void loop() {
   // handle client requests
   server.handleClient();
 
-  if (bmeAvailable && millis() % 2000 == 0) {
-    readBMEData();
+  if (epochChanged && epoch % 2 == 0) {
+    if (bmeAvailable) {
+      readBMEData();
+    }
+
+    if (context.sunScheduleEnabled) {
+      sunSchedule(now);
+    }
   }
 
-  if (millis() % 60000 == 0) {
+  if (epochChanged && epoch % 60 == 0) {
     initNtp();
   }
+
+  lastEpoch = epoch;
+  delay(10);
 }
