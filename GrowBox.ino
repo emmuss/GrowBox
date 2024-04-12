@@ -25,9 +25,10 @@
 // # or    CTRL + N         (VSCode)                    #
 // ######################################################
 
-const char* hostname = "GrowBoxTest";
+const char* hostname = "GrowBox01";
 const char* ssid = SECRET_SSID;    // your network SSID (name)
 const char* pass = SECRET_PASS;    // your network password
+const char* webcam = "http://192.168.178.197/";
 
 // Timezone rule / NTP Servers
 const char* time_zone = "CET-1CEST,M3.5.0,M10.5.0/3"; // (Berlin)
@@ -131,7 +132,7 @@ void bmeRetentionInit() {
     bmeDataRetained.add(data);
   }
   file.close();    
-  Serial.println("- file written");
+  Serial.println("- file read");
 }
 
 void bmeRetentionDelete() {
@@ -169,6 +170,8 @@ String bmeToJson(BMEData data) {
     result += "\"temperature\":" + String(data.temperature) + ",";
     result += "\"humidity\":" + String(data.humidity) + ",";
     result += "\"pressure\":" + String(data.pressure) + ",";
+    // result += "\"light\":" + String(context.light) + ",";
+    // result += "\"fanSpeed\":" + String(context.fanSpeed) + ",";
     result += "\"timestamp\":" + String(data.timestamp);
     result += "}";
     return result;
@@ -178,6 +181,7 @@ void serverSendContext() {
     String result = 
      "{";
         result += "\"me\": \"" + String(hostname) + "\",";
+        result += "\"webcam\": \"" + String(webcam) + "\",";
         result += "\"fsMounted\": \"" + String(fsMounted) + "\",";
         result += "\"light\": " + String(context.light) + ",";
         result += "\"fanSpeed\":" + String(context.fanSpeed);
@@ -334,6 +338,11 @@ void handleFavIcon() {
   server.send(200, "image/x-icon", FAV_ICON, FAV_ICON_SIZE);
 }
 
+// dewpoint:
+//       return (243.5*(log(id(bme280_humidity).state/100)+((17.67*id(bme280_temperature).state)/
+//       (243.5+id(bme280_temperature).state)))/(17.67-log(id(bme280_humidity).state/100)-
+//       ((17.67*id(bme280_temperature).state)/(243.5+id(bme280_temperature).state))));
+
 void configureRoutes() {
   server.on("/", handleRoot);
   server.on("/favicon.ico", handleFavIcon);
@@ -395,41 +404,60 @@ void sunSchedule(DateTime now) {
   DateTime lastSet = lastRise + context.sunDuration;
   DateTime rise = DateTime(now.year(), now.month(), now.day(), 0, 0, 0) + context.sunrise;
   DateTime set = rise + context.sunDuration;
-  char buf[20];
+  char buff[20];
+  Serial.println("SUN SCHEDULE ####################");
+  Serial.printf("NOW: %s", now.tostr(buff)); Serial.println();
+  Serial.printf("Last Rise: %s", lastRise.tostr(buff)); Serial.println();
+  Serial.printf("Last Set: %s", lastSet.tostr(buff)); Serial.println();
+  Serial.printf("Rise: %s", rise.tostr(buff)); Serial.println();
+  Serial.printf("Set: %s", set.tostr(buff)); Serial.println();
 
   if(lastSet > now) {
     rise = lastRise;
     set = lastSet;
   }
+  Serial.printf("Picked Rise: %s", rise.tostr(buff)); Serial.println();
+  Serial.printf("Picked Set: %s", set.tostr(buff)); Serial.println();
   
   double target = 0;
-  bool riseOrSet = false;
+  bool isRise = false;
+  bool isSet = false;
   int32_t riseDiff = (now - rise).totalseconds();
+  Serial.printf("riseDiff = %d", riseDiff); Serial.println();
   if (riseDiff > 0 && riseDiff <= context.sunriseSetDuration) {
     target = (double)riseDiff / (double)context.sunriseSetDuration;
-    riseOrSet = true;
-  } 
+    isRise = true;
+  }
+  Serial.printf("afterRise: target = %f, isRise = %d", target, isRise); Serial.println();
   int32_t setDiff = (now - (set - context.sunriseSetDuration)).totalseconds();
+  Serial.printf("setDiff = %d", setDiff); Serial.println();
   if (setDiff > 0 && setDiff <= context.sunriseSetDuration) {
     target = 1.0 - ((double)setDiff / (double)context.sunriseSetDuration);
-    riseOrSet = true;
+    isSet = true;
   }
-
+  Serial.printf("target afterSet: %f, isSet = %d", target, isSet); Serial.println();
+  bool riseOrSet = isRise || isSet;
   if (!riseOrSet) {
-    if (now >= rise && now < set) {
+    if (now > rise && now < set) {
+      Serial.println("day");
       target = 1;
     } else {
+      Serial.println("night");
       target = 0;
     }
-  }
+  }  
+  Serial.printf("final target: %f, riseOrSet = %d", target, riseOrSet); Serial.println();
 
-  double dtl = target * (double)context.sunTargetLight;
-  char targetLight = context.sunTargetLight - dtl;
+  double sunTargetLight = 255 - context.sunTargetLight;
+  double dtl = target * sunTargetLight;
+  char targetLight = 255 - dtl;
+  Serial.printf("targetLight = %d, dtl = %f, sunTargetLight = %f, ", (int)targetLight, dtl, sunTargetLight); Serial.println();
   if (context.light != targetLight) {
     context.light = targetLight;
     analogWrite(pLight, context.light);
     contextSaveChanges();
   }
+  Serial.println("#################################");
 }
 
 void setupOTA() {

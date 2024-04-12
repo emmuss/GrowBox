@@ -59,6 +59,11 @@ const char HTML_INDEX[] PROGMEM = R"=====(
       display: flex;
       justify-content: center;
     }
+    #webStream {
+      width: 100%;
+      object-fit:cover;
+      border-radius: 8px;
+    }
   </style>
 </head>
 
@@ -73,6 +78,7 @@ const char HTML_INDEX[] PROGMEM = R"=====(
           <span class="mx-2">|</span>
           <span class=""><span id="gbPressure">123</span> hpa</span>
         </div>
+        <img id="webStream">
       </div>
     </div>
     <!-- CHART -->
@@ -81,7 +87,9 @@ const char HTML_INDEX[] PROGMEM = R"=====(
         History
       </div>
       <div class="card-body">
-        <canvas id="gbChart" width="100%" height="80"></canvas>
+        <div style="position: relative; width: 100%; height: 180px;">
+          <canvas id="gbChart"></canvas>
+        </div>
       </div>
     </div>
     <!-- FAN -->
@@ -107,6 +115,7 @@ const char HTML_INDEX[] PROGMEM = R"=====(
   </main>
   <script>
     const urlPrefix = ""
+    let webStreamUrl = "";
     let gbChart = undefined;
     let updateTimout = undefined;
     let fanSliderLastInput = undefined;
@@ -122,7 +131,24 @@ const char HTML_INDEX[] PROGMEM = R"=====(
       lightSlider.on("input", () => {
         lightSliderLastInput = new Date().getTime();
       });
+      const webStream = $("#webStream");
+      webStream.on("click", () => {
+        if (webStreamUrl) {
+          window.open(webStreamUrl,'_blank');
+          webStream.attr("src", "");
+        }
+      });
       update();
+    });
+    // $(window).on('blur', () => {
+    //   const webStream = $("#webStream");
+    //   webStream.attr("src", "");
+    // });
+    $(window).on('focus', () => {
+      const webStream = $("#webStream");
+        if (webStreamUrl) {
+          webStream.attr("src", webStreamUrl);
+        }
     });
 
     beginUpdate = () => {
@@ -153,13 +179,25 @@ const char HTML_INDEX[] PROGMEM = R"=====(
         $("#gbTitle").text("No BME");
       }
 
+      if (data.webcam != webStreamUrl) {
+        webStreamUrl = data.webcam;
+        $("#webStream").attr("src", webStreamUrl); 
+      }
+
       // update chart data
       const tempData = [];
       const humData = [];
       const presData = [];
+      const lightData = [];
       if (data.bmeRetained) {
         data.bmeRetained.forEach(bme => {
           const x = new Date(bme.timestamp * 1000);
+          const mstamp = moment(bme.timestamp * 1000);
+          const day = moment(mstamp).startOf('day');
+          const sunrise = moment(day).add(data.lightSchedule.sunrise, 'seconds');
+          const sunset = moment(sunrise).add(data.lightSchedule.sunDuration, 'seconds');
+          const light = mstamp.isBetween(sunrise, sunset) ? ((1 - (data.light / 255)) * 100) : 0;
+          lightData.push({x, y: light});
           tempData.push({ x, y: bme.temperature.toFixed(2) });
           humData.push({ x, y: bme.humidity.toFixed(2) });
           presData.push({ x, y: (bme.pressure / 100).toFixed(2) });
@@ -168,6 +206,7 @@ const char HTML_INDEX[] PROGMEM = R"=====(
       if (gbChart) {
         gbChart.data.datasets[0].data = tempData;
         gbChart.data.datasets[1].data = humData;
+        gbChart.data.datasets[2].data = lightData;
         gbChart.update();
       }
       
@@ -233,6 +272,12 @@ const char HTML_INDEX[] PROGMEM = R"=====(
               pointHoverBackgroundColor: "rgba(2,117,216,1)",
               pointHitRadius: 50,
               pointBorderWidth: 2,
+              yAxisID: "y1",
+            },{
+              label: "Light",
+              type: 'bar',
+              backgroundColor: "rgba(255,229,0,0.2)",
+              borderColor: "rgba(255,229,0,1)",
               yAxisID: "y1",
             }],
           },
