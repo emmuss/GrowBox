@@ -48,7 +48,7 @@
                 }
                 @if (!string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamSnapshotUrl))
                 {
-                    <RadzenButton Click=@(async args => { await _appGrowBox.Service.Snapshot(); await Js.WindowOpen("./snapshots/lastsnap.jpg"); }) Icon="photo_camera" ButtonStyle="ButtonStyle.Primary"/>
+                    <RadzenButton Click=@(async args => { await _appGrowBox.Service.Snapshot(); await Js.WindowOpen(_appGrowBox.GrowBox.WebCamSnapshotUrl); }) Icon="photo_camera" ButtonStyle="ButtonStyle.Primary"/>
                 }
             </RadzenStack>
         </RadzenCard>

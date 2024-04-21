@@ -7,6 +7,69 @@ networks:
     driver: bridge
 
 services:
+  growbox-webcam-1:
+    profiles:
+      - webcam-1
+      - webcam-2
+      - webcam-3
+      - webcam-4
+    image: davidhamm/mjpg-streamer
+    container_name: growbox-webcam-1
+    ports:
+      - "${GROWBOX_CAM1_PORT}:8080"
+    volumes:
+      - "${GROWBOX_CAM1}:/dev/video0"
+    environment:
+      RESOLUTION: ${GROWBOX_CAM1_RESOLUTION}
+    restart: unless-stopped
+    networks:
+      - growbox-network
+  growbox-webcam-2:
+    profiles:
+      - webcam-2
+      - webcam-3
+      - webcam-4
+    image: davidhamm/mjpg-streamer
+    container_name: growbox-webcam-2
+    ports:
+      - "${GROWBOX_CAM2_PORT}:8080"
+    volumes:
+      - "${GROWBOX_CAM2}:/dev/video0"
+    environment:
+      RESOLUTION: ${GROWBOX_CAM2_RESOLUTION}
+    restart: unless-stopped
+    networks:
+      - growbox-network
+  growbox-webcam-3:
+    profiles:
+      - webcam-3
+      - webcam-4
+    image: davidhamm/mjpg-streamer
+    container_name: growbox-webcam-3
+    ports:
+      - "${GROWBOX_CAM3_PORT}:8080"
+    volumes:
+      - "${GROWBOX_CAM3}:/dev/video0"
+    environment:
+      RESOLUTION: ${GROWBOX_CAM3_RESOLUTION}
+    restart: unless-stopped
+    networks:
+      - growbox-network
+  growbox-webcam-4:
+    profiles:
+      - webcam-4
+    image: davidhamm/mjpg-streamer
+    container_name: growbox-webcam-4
+    ports:
+      - "${GROWBOX_CAM4_PORT}:8080"
+    volumes:
+      - "${GROWBOX_CAM4}:/dev/video0"
+    environment:
+      RESOLUTION: ${GROWBOX_CAM4_RESOLUTION}
+    restart: unless-stopped
+    networks:
+      - growbox-network
+
   growbox-postgres:
     image: postgres
     container_name: growbox-postgres
