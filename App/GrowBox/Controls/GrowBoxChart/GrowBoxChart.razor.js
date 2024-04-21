@@ -93,20 +93,22 @@ export const updateGrowBoxChart = (elementId, data) => {
     // update chart data
     const tempData = [];
     const humData = [];
-    const presData = [];
     const lightData = [];
-    if (data.bmeRetained) {
-        data.bmeRetained.forEach(bme => {
-            const x = new Date(bme.timestamp * 1000);
-            const mstamp = moment(bme.timestamp * 1000);
-            const day = moment(mstamp).startOf('day');
-            const sunrise = moment(day).add(data.lightSchedule.sunrise, 'seconds');
-            const sunset = moment(sunrise).add(data.lightSchedule.sunDuration, 'seconds');
-            const light = mstamp.isBetween(sunrise, sunset) ? ((1 - (data.light / 255)) * 100) : 0;
-            lightData.push({x, y: light});
-            tempData.push({ x, y: bme.temperature.toFixed(2) });
-            humData.push({ x, y: bme.humidity.toFixed(2) });
-            presData.push({ x, y: (bme.pressure / 100).toFixed(2) });
+    if (data) {
+        data.forEach(reading => {
+            const mstamp = moment(reading.created);
+            const x = mstamp.toDate();
+            const t = reading.type;
+            const v = reading.value;
+            if (t === "temperature") {
+                tempData.push({x, y: v.toFixed(2)});
+            } else if (t === "light") {
+                let v2 = 255 - v;
+                v2 = (v2 / 255) * 100;
+                lightData.push({x, y: v2});
+            } else if (t === "humidity") {
+                humData.push({ x, y: v.toFixed(2) });
+            }
         });
     }
     chart.data.datasets[0].data = tempData;

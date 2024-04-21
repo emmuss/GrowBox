@@ -1,5 +1,7 @@
 ﻿@using GrowBox.Controls.GrowBoxChart
 @using GrowBox.State
+@using GrowBox.Abstractions.Model.EspApi
+@using Blazor.MinimalApi.Client
 
 @page "/growbox/{GrowBoxId:guid}"
 
@@ -7,6 +9,7 @@
 
 @inject App App
 @inject NavigationManager NavigationManager
+@inject MinimalHttpClient<Abstractions.Model.SensorReadingRequest, Abstractions.Model.SensorReading[]> SensorReadings
 @inject IJSRuntime Js
 
 @if (_appGrowBox != null && _root != null) 
@@ -18,11 +21,11 @@
         <RadzenCard Variant="Variant.Filled">
             <RadzenStack Gap="0.5rem">
                 <RadzenText TextStyle="TextStyle.Subtitle1" TextAlign="TextAlign.Center" style="margin-bottom: 0;">@_appGrowBox.GrowBox.Name</RadzenText>
-                <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" style="margin-bottom: 0; font-size: 3rem; font-weight: 100;">@Math.Round(_root.Bme.Temperature) °C</RadzenText>
+                <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" style="margin-bottom: 0; font-size: 3rem; font-weight: 100;">@Math.Round(_root.Temperature) °C</RadzenText>
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0">
-                    <RadzenIcon Icon="water_drop"/> <span>@Math.Round(_root.Bme.Humidity, 1) %</span>
+                    <RadzenIcon Icon="water_drop"/> <span>@Math.Round(_root.Humidity, 1) %</span>
                     <span class="mx-2">|</span>
-                    <span>@(Math.Round(_root.Bme.Pressure / 100, 1)) hpa</span>
+                    <span>@(Math.Round(_root.Pressure / 100, 1)) hpa</span>
                 </RadzenStack>
                 @if (_root.LightSchedule.SunScheduleEnabled)
                 {
@@ -54,7 +57,7 @@
         </RadzenCard>
 
         <RadzenCard Variant="Variant.Filled">
-            <GrowBoxChart Data="@_root"/>
+            <GrowBoxChart @ref="_chart"/>
         </RadzenCard>
         
     </RadzenStack>    
@@ -64,7 +67,9 @@
 @code
 {
     private AppGrowBox? _appGrowBox;
-    private GrowBoxRoot? _root;
+    private EspRoot? _root;
+    private GrowBoxChart? _chart;
+    
     private readonly List<IDisposable> _subscriptions = new();
 
     TimeSpan _rise = TimeSpan.Zero;
@@ -102,12 +107,34 @@
                     _set = TimeSpan.FromSeconds(set);
                     _sunDuration = _set - _rise;
                     StateHasChanged();
+                    UpdateChartDataAsync();
                 }));
             _appGrowBox.Service.Start();
             // ReSharper disable once AccessToModifiedClosure
             // we want to dispose ourself after init.
             idSub.Dispose();
         });
+    }
+
+    private async void UpdateChartDataAsync()
+    {
+        if (_chart is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var sensorReadings = await SensorReadings.Get(new Abstractions.Model.SensorReadingRequest(
+                ["temperature", "pressure", "light", "humidity"],
+                GrowBoxId, DateTime.UtcNow - TimeSpan.FromDays(1), null));
+            await _chart.UpdateChart(sensorReadings);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
     }
 
 

@@ -1,82 +1,25 @@
-﻿@using GrowBox.Services
-@using GrowBox.Abstractions.Model
+﻿@using GrowBox.Abstractions.Model
 @using GrowBox.State
+@using GrowBox.Controls
 
 @page "/growbox/create"
 
 @inject App App
-@inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject ILogger<GrowBoxCreate> Logger
 @inject NotificationService NotificationService
 
-<RadzenTemplateForm TItem="GrowBox" Data="@_growBox" Submit="@OnSubmit">
-<RadzenStack>
-    <RadzenCard class="card">
-        <RadzenText TextStyle="TextStyle.Subtitle1"> GrowBox </RadzenText>
-        Configure the connection and appearance of your Growbox. Icon names can be found on 
-        <a href="https://fonts.google.com/icons" target="_blank">fonts.google.com/icons</a>.
-        <div class="config-row">
-            <RadzenFormField Text="Name*">
-                <RadzenTextBox style="display: block" Name="Name" @bind-Value="@_growBox.Name" class="w-100" Placeholder="Super Bud Maker v2000" />
-            </RadzenFormField>
-            <div class="validation">
-                <RadzenRequiredValidator Component="Name" Text="A Growbox name is required." />
-                <RadzenLengthValidator Min="0" Max="80" Text="Name too long." Component="Name" />
-            </div>
-        </div>
-        <div class="config-row">
-            <RadzenFormField Text="Icon*">
-                <RadzenTextBox style="display: block" Name="Icon" @bind-Value="@_growBox.Icon"  class="w-100" Placeholder="yard" />
-            </RadzenFormField>
-            <div class="validation">
-                <RadzenRequiredValidator Component="Icon" Text="An icon is required."/>
-                <RadzenLengthValidator Min="0" Max="64" Text="Icon too long." Component="Icon" />
-            </div>
-        </div>
-        <div class="config-row">
-            <RadzenFormField Text="GrowBox Url*">
-                <RadzenTextBox style="display: block" Name="GrowBoxUrl" @bind-Value="@_growBox.GrowBoxUrl" class="w-100" Placeholder="http://growbox01"/>
-            </RadzenFormField>
-            <div class="validation">
-                <RadzenRequiredValidator Component="GrowBoxUrl" Text="A Growbox name is required."/>
-                <RadzenLengthValidator Min="0" Max="1024" Text="GrowBox Url too long." Component="GrowBoxUrl" />
-            </div>
-        </div>
-    </RadzenCard>
-    <RadzenCard class="card">
-        <RadzenText TextStyle="TextStyle.Subtitle1"> Webcam </RadzenText>
-        Define Urls to Webcams for Streaming and Snapshots. To create a grow diary you can also automate snapshots for 
-        your GrowBox. Snapshots are not taken while night if the light schedule is enabled.
-        <div class="config-row">
-            <RadzenFormField Text="Stream Url">
-                <RadzenTextBox style="display: block" Name="WebCamStreamUrl" @bind-Value="@_growBox.WebCamStreamUrl" class="w-100" Placeholder="http://growbox-webcam-1:8080/?action=stream"/>
-            </RadzenFormField>
-            <div class="validation">
-                <RadzenLengthValidator Max="1024" Text="GrowBox Url too long." Component="WebCamStreamUrl" />
-            </div>
-        </div>
-        <div class="config-row">
-            <RadzenFormField Text="Snapshot Url">
-                <RadzenTextBox style="display: block" Name="WebCamSnapshotUrl" @bind-Value="@_growBox.WebCamSnapshotUrl" class="w-100" Placeholder="http://growbox-webcam-1:8080/?action=snapshot"/>
-            </RadzenFormField>
-            <div class="validation">
-                <RadzenLengthValidator Max="1024" Text="GrowBox Url too long." Component="WebCamSnapshotUrl" />
-            </div>
-        </div>
-    </RadzenCard>
-    
-    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem" Class="rz-mt-8 rz-mb-4">
-        <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Icon="save" Text="Save" />
-        <RadzenButton ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Icon="cancel" Text="Test Connection" Click="@TestConnection" />
-    </RadzenStack>
-    
-</RadzenStack>
-</RadzenTemplateForm>
+<GrowBoxEditor Submit="@OnSubmit" GrowBox="_growBox" />
 
 @code
 {
-    private readonly GrowBox _growBox = new();
+    private readonly GrowBox _growBox = new()
+    {
+        GrowBoxUrl = "http://growbox01/",
+        Icon = "yard", 
+        WebCamStreamUrl = "http://growbox.local:8091/?action=stream", 
+        WebCamSnapshotUrl = "http://growbox.local:8091/?action=snapshot",
+    };
     
     private async Task OnSubmit(GrowBox growBox)
     {
@@ -97,30 +40,5 @@
             NotificationService.Notify(message);
             Logger.LogError(e, "Failed to create growbox.");
         }
-    }
-
-    private async Task TestConnection()
-    {
-        GrowBoxApiService service = new(Http, _growBox.GrowBoxUrl);
-        var message = new NotificationMessage
-        {
-            Severity = NotificationSeverity.Success,
-            Summary = "Connection Test",
-            Detail = "Successful.",
-            Duration = 2000
-        };
-
-        try
-        {
-            var root = await service.Get();
-            if (root == null) throw new Exception();
-        }
-        catch (Exception)
-        {
-            message.Severity = NotificationSeverity.Error;
-            message.Detail = "Failed.";
-        }
-        
-        NotificationService.Notify(message);
     }
 }

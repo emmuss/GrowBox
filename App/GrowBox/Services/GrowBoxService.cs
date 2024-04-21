@@ -1,5 +1,6 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using GrowBox.Abstractions.Model.EspApi;
 
 namespace GrowBox.Services;
 
@@ -14,8 +15,8 @@ public sealed class GrowBoxService : IAsyncDisposable
     private readonly HttpClient _http;
     private readonly ILogger<GrowBoxService> _logger;
     private readonly Abstractions.Model.GrowBox _growBox;
-    private readonly Subject<GrowBoxRoot?> _growBoxRootSub = new();
-    public IObservable<GrowBoxRoot?> GrowBoxRoot => _growBoxRootSub.AsObservable();
+    private readonly Subject<EspRoot?> _growBoxRootSub = new();
+    public IObservable<EspRoot?> GrowBoxRoot => _growBoxRootSub.AsObservable();
 
     private Task? _updateTask;
     private CancellationTokenSource? _cancellationTokenSource;
@@ -25,12 +26,12 @@ public sealed class GrowBoxService : IAsyncDisposable
     private readonly Subject<int> _updateFanSpeedSub = new();
     private readonly Subject<int> _updateLightSub = new();
     private readonly Subject<LightScheduleReq> _updateSunScheduleSub = new();
-    private readonly GrowBoxApiService _growBoxApi;
+    private readonly EspApiService _espApi;
 
 
     public GrowBoxService(HttpClient http, ILogger<GrowBoxService> logger, Abstractions.Model.GrowBox growBox)
     {
-        _growBoxApi = new GrowBoxApiService(http, growBox.GrowBoxUrl);
+        _espApi = new EspApiService(http, growBox.GrowBoxUrl);
         _http = http;
         _logger = logger;
         _growBox = growBox;
@@ -39,7 +40,7 @@ public sealed class GrowBoxService : IAsyncDisposable
             try
             {
                 _logger.LogInformation($"Updating Fan Speed to {speed}");
-                var root = await _growBoxApi.FanSet(speed);
+                var root = await _espApi.FanSet(speed);
                 _growBoxRootSub.OnNext(root);
             }
             catch (Exception ex)
@@ -52,7 +53,7 @@ public sealed class GrowBoxService : IAsyncDisposable
             {
                 
                 _logger.LogInformation($"Updating Light to {light}");
-                var root = await _growBoxApi.LightSet(light);
+                var root = await _espApi.LightSet(light);
                 _growBoxRootSub.OnNext(root);
             }
             catch (Exception ex)
@@ -65,7 +66,7 @@ public sealed class GrowBoxService : IAsyncDisposable
             {
                 
                 _logger.LogInformation($"Updating light schedule");
-                var root = await _growBoxApi.LightScheduleSet(x);
+                var root = await _espApi.LightScheduleSet(x);
                 _growBoxRootSub.OnNext(root);
             }
             catch (Exception ex)
@@ -116,7 +117,7 @@ public sealed class GrowBoxService : IAsyncDisposable
     {
         try
         {
-            var resp = await _growBoxApi.Get();
+            var resp = await _espApi.Get();
             if (resp != null) 
             {
                 _growBoxRootSub.OnNext(resp);

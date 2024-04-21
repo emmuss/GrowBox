@@ -1,0 +1,67 @@
+﻿@using GrowBox.Abstractions.Model
+@using GrowBox.State
+@using GrowBox.Controls
+@using Blazor.MinimalApi.Client
+
+@page "/growbox/{GrowBoxId:guid}/edit"
+
+@inject App App
+@inject IJSRuntime Js
+@inject NavigationManager NavigationManager
+@inject MinimalHttpClient<Abstractions.Model.GrowBox> GrowBoxRead 
+@inject ILogger<GrowBoxEdit> Logger
+@inject NotificationService NotificationService
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start" Style="margin-bottom: 1rem">
+    <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Dark" Click=@(() => Js.InvokeVoidAsync("history.back")) />
+</RadzenStack>
+
+@if (_growBox is not null)
+{
+    <GrowBoxEditor Submit="@OnSubmit" GrowBox="_growBox"/>
+}
+
+@code
+{
+    [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
+    
+    private GrowBox? _growBox;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (GrowBoxId == Guid.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            _growBox = await GrowBoxRead.Get(query: new QueryParameters().With("id", GrowBoxId));
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Failed to request GrowBox.");
+        }
+    }
+
+    private async Task OnSubmit(GrowBox growBox)
+    {
+        try
+        {
+            var result = await App.UpdateGrowBox(growBox);
+            NavigationManager.NavigateTo($"/growbox/{result.Id}");
+        }
+        catch (Exception e)
+        {
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Growbox Edit",
+                Detail = "Failed.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+            Logger.LogError(e, "Failed to update growbox.");
+        }
+    }
+}

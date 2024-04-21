@@ -55,6 +55,16 @@ public class App
         
         return result;
     }
+    public async Task<Abstractions.Model.GrowBox> UpdateGrowBox(Abstractions.Model.GrowBox growBox)
+    {
+        var result = await _growBoxWrite.Update(growBox);
+
+        if (result == null) throw new Exception("GrowBox update failed.");
+
+        await UpdateAppState();
+        
+        return result;
+    }
     
     public async Task<Abstractions.Model.GrowBox> DeleteGrowBox(Abstractions.Model.GrowBox growBox)
     {

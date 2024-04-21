@@ -1,5 +1,6 @@
 ﻿@using GrowBox.Services
 @using GrowBox.State
+@using GrowBox.Abstractions.Model.EspApi
 
 @page "/growbox/{GrowBoxId:guid}/settings"
 
@@ -12,8 +13,9 @@
 @if (_root != null && _appGrowBox != null) 
 {
     <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Dark" Click=@(() => Js.InvokeVoidAsync("history.back")) />
+            <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/edit")) />
         </RadzenStack>
         <RadzenCard Variant="Variant.Filled">
             <RadzenStack Gap="1rem">
@@ -63,7 +65,7 @@
 @code
 {
     private AppGrowBox? _appGrowBox;
-    private GrowBoxRoot? _root;
+    private EspRoot? _root;
     private readonly List<IDisposable> _subscriptions = [];
     
 

@@ -1,7 +1,8 @@
 ﻿using GrowBox.Abstractions;
 using GrowBox.Abstractions.Model;
-using GrowBox.Abstractions.Model.GrowBoxAPI;
+using GrowBox.Abstractions.Model.EspApi;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace GrowBox.Server.Services;
 
@@ -28,8 +29,8 @@ public class RetentionService(ServerConfiguration config, IServiceProvider servi
             foreach (var growBox in await context.GrowBoxes.ToArrayAsync(cancellationToken))
             {
                 if (cancellationToken.IsCancellationRequested) break;
-                var api = new GrowBoxApiService(http, growBox.GrowBoxUrl);
-                GrowBoxRoot? root = null;
+                var api = new EspApiService(http, growBox.GrowBoxUrl);
+                EspRoot? root = null;
                 
                 for (int i = 1; i <= 5; i++)
                 {
@@ -51,12 +52,15 @@ public class RetentionService(ServerConfiguration config, IServiceProvider servi
                     continue;
                 }
 
-                context.SensorReadings.Add(new SensorReading { GrowBoxId = growBox.Id, 
-                    Type = "temperature", Value = root.Bme.Temperature, });
-                context.SensorReadings.Add(new SensorReading { GrowBoxId = growBox.Id, 
-                    Type = "pressure", Value = root.Bme.Pressure, });
-                context.SensorReadings.Add(new SensorReading { GrowBoxId = growBox.Id, 
-                    Type = "humidity", Value = root.Bme.Humidity, });
+                void AddReading(string type, double value) => context.SensorReadings.Add(
+                    new SensorReading { GrowBoxId = growBox.Id, Type = type, Value = value, });
+                AddReading("temperature", root.Temperature);
+                AddReading("pressure", root.Pressure);
+                AddReading("humidity", root.Humidity);
+                AddReading("heatIndex", root.HeatIndex);
+                AddReading("dewPoint", root.DewPoint);
+                AddReading("light", root.Light);
+                AddReading("fanSpeed", root.FanSpeed);
                 isContextChanged = true;
                 logger.LogInformation($"Gathering completed for growbox {growBox.Name}.");
             }

@@ -1,4 +1,5 @@
 ﻿using GrowBox.Abstractions;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 using GrowBoxModel = GrowBox.Abstractions.Model.GrowBox;
@@ -9,17 +10,26 @@ public class GrowBoxEd : IEndpointDefinition
 {
     public void DefineEndpoints(IEndpointRouteBuilder builder)
     {
-        builder.MinimalMapCreate<GrowBoxModel, GrowBoxModel>(async (GrowBoxModel newGrowBox, GrowBoxContext ctx) =>
+        builder.MinimalMapCreate<GrowBoxModel, GrowBoxModel>(async (GrowBoxModel growBox, GrowBoxContext ctx) =>
         {
-            await ctx.GrowBoxes.AddAsync(newGrowBox);
+            await ctx.GrowBoxes.AddAsync(growBox);
             await ctx.SaveChangesAsync();
-            return newGrowBox;
+            return growBox;
         });
-        builder.MinimalMapDelete<GrowBoxModel, GrowBoxModel>((GrowBoxModel req, GrowBoxContext ctx) =>
+        builder.MinimalMapUpdate<GrowBoxModel, GrowBoxModel>(async (GrowBoxModel growBox, GrowBoxContext ctx) =>
         {
-            var count = ctx.GrowBoxes.Where(x => x.Id == req.Id).ExecuteDelete();
-            return count > 0 ? req : new GrowBoxModel();
+            ctx.GrowBoxes.Update(growBox);
+            await ctx.SaveChangesAsync();
+            return growBox;
         });
-        builder.MinimalMapGet<GrowBoxModel[]>((GrowBoxContext ctx) => ctx.GrowBoxes.ToArrayAsync());
+        builder.MinimalMapDelete<GrowBoxModel, GrowBoxModel>((GrowBoxModel growBox, GrowBoxContext ctx) =>
+        {
+            var count = ctx.GrowBoxes.Where(x => x.Id == growBox.Id).ExecuteDelete();
+            return count > 0 ? growBox : new GrowBoxModel();
+        });
+        builder.MinimalMapGet<GrowBoxModel[]>((GrowBoxContext ctx) 
+            => ctx.GrowBoxes.ToArrayAsync());
+        builder.MinimalMapGet<GrowBoxModel>((GrowBoxContext ctx, [FromQuery(Name = "id")] Guid id) 
+            => ctx.GrowBoxes.FirstOrDefault(x => x.Id == id));
     }
 }

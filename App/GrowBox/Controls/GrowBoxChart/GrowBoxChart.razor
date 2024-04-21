@@ -1,3 +1,5 @@
+@using GrowBox.Abstractions.Model.EspApi
+@using GrowBox.Abstractions.Model
 @implements IAsyncDisposable
 @inject IJSRuntime Js
 
@@ -9,9 +11,6 @@
     private readonly string _chartId = "growbox-chart-" + Guid.NewGuid().ToString("N");
     private IJSObjectReference? _module;
 
-    [Parameter]
-    public GrowBoxRoot? Data { get; set; }
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -19,23 +18,17 @@
             _module = await Js.InvokeAsync<IJSObjectReference>(
                 "import", "./Controls/GrowBoxChart/GrowBoxChart.razor.js");
             await _module.InvokeVoidAsync("createGrowBoxChart", _chartId);
-            await UpdateChart();
         }
     }
 
-    protected override async Task OnParametersSetAsync() 
+    public async Task UpdateChart(SensorReading[]? data)
     {
-        await UpdateChart();
-    }
-
-    private async Task UpdateChart()
-    {
-        if (_module is null || Data is null)
+        if (_module is null || data is null)
         {
             return;
         }
 
-        await _module.InvokeVoidAsync("updateGrowBoxChart", _chartId, Data);
+        await _module.InvokeVoidAsync("updateGrowBoxChart", _chartId, data);
     }
 
     async ValueTask IAsyncDisposable.DisposeAsync()

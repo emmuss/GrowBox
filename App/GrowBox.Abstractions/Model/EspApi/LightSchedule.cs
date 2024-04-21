@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace GrowBox.Abstractions.Model.GrowBoxAPI
+namespace GrowBox.Abstractions.Model.EspApi
 {
     public record LightSchedule(
         [property: JsonPropertyName("sunScheduleEnabled")] bool SunScheduleEnabled,

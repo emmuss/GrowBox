@@ -14,10 +14,6 @@
 #include "FS.h"
 #include <LittleFS.h>
 #include "time.h"
-
-#include "index.h"
-#include "favicon.h"
-
 #include "arduino_secrets.h" 
 // ######################################################
 // # Please enter your sensitive data in the            #
@@ -47,40 +43,28 @@ Adafruit_BME280 bme;
 
   const int pFan = D0;
   const int pLight = D5;
-  // TODO: BME280!, Supersonic? (plant height), Soil moisture?, EC / PH?, 
+  // TODO: Supersonic? (plant height), Soil moisture?, EC / PH?, 
   // pumps/fert/water?, 
-
-// BMEData
-struct BMEData {
-  time_t timestamp;
-  float temperature;
-  float pressure;
-  float humidity;
-};
-const int BME_DATA_SIZE = sizeof(BMEData);
-BMEData bmeData;
-// time between retained measurements.
-const int bmeDataRetentionDelay = 3600; // 1 hr
-// max data retention.
-const unsigned char bmeDataRetention = 24; // 24 samples so we get 1 day retained bme data
-// retained bme data.
-List<BMEData> bmeDataRetained;
 
 // Context
 struct Context
 {
   // Fan Speed, 255 = OFF, 0 = MAX.
   unsigned char fanSpeed;
-
   unsigned char light;
   int32_t sunrise;
   int32_t sunDuration;
-  int32_t sunriseSetDuration;
   unsigned char sunTargetLight;
   bool sunScheduleEnabled;
+  time_t timestamp;
+  float temperature;
+  float pressure;
+  float humidity;
+  float dewPoint;
+  float heatIndex;
 };
 const int CONTEXT_SIZE = sizeof(Context);
-const char * CONTEXT_MARKER = "GROW";
+const char * CONTEXT_MARKER = "GROO";
 const int CONTEXT_MARKER_SIZE = 4;
 Context context;
 bool bmeAvailable = false;
@@ -102,15 +86,19 @@ void contextInit() {
     // INITIALIZE CONTEXT DEFAULT VALUES HERE.
     
     // Fan Speed, 255 = OFF, 0 = MAX.
-    context.fanSpeed = 255;
+    context.fanSpeed = 186;
     // light, 255 = OFF, 0 = MAX.
-    context.light = 255;
+    context.light = 103;
 
     context.sunrise = 6 * 60 * 60; // 21600
     context.sunDuration = 18 * 60 * 60; // 64800
-    context.sunriseSetDuration = 8 * 60; // 480
-    context.sunTargetLight = 255;
+    context.sunTargetLight = 103;
     context.sunScheduleEnabled = true;
+    context.dewPoint = 0;
+    context.heatIndex = 0;
+    context.humidity = 0;
+    context.temperature = 0;
+    context.timestamp = 0;
     return;
   }
   memcpy(&context, EEPROM.getConstDataPtr() + CONTEXT_MARKER_SIZE, CONTEXT_SIZE);
@@ -124,92 +112,29 @@ void contextSaveChanges() {
   EEPROM.commit();
 }
 
-void bmeRetentionInit() {
-  Serial.print("bmeRetentionInit ");
-  File file = LittleFS.open("bmeretention.bin", "r");
-  if (!file) {
-      Serial.println("- failed to open file for reading");
-      return;
-  }
-  int size = file.read();
-  for (int i = 0; i < size; i++)
-  {
-    BMEData data;
-    file.read((uint8_t*)&data, BME_DATA_SIZE);
-    bmeDataRetained.add(data);
-  }
-  file.close();    
-  Serial.println("- file read");
-}
-
-void bmeRetentionDelete() {
-  LittleFS.remove("bmeretention.bin");
-  bmeDataRetained.clear();
-}
-
-void bmeRetentionSaveChanges() {
-  if (bmeDataRetained.getSize() <= 0) {
-    return;
-  }
-  Serial.print("bmeRetentionSaveChanges ");
-  File file = LittleFS.open("bmeretention.bin", "w");
-  if (!file) {
-      Serial.println("- failed to open file for writing");
-      return;
-  }
-
-  int size = bmeDataRetained.getSize();
-
-  file.write(size);
-  for (int i = 0; i < size; i++)
-  {
-    BMEData data = bmeDataRetained[i];
-    file.write((uint8_t*)&data, BME_DATA_SIZE);
-  }
-  file.close();    
-  Serial.println("- file written");
-}
-
 // SERVER I/O ###########################################
-
-String bmeToJson(BMEData data) {
-    String result = "{";
-    result += "\"temperature\":" + String(data.temperature) + ",";
-    result += "\"humidity\":" + String(data.humidity) + ",";
-    result += "\"pressure\":" + String(data.pressure) + ",";
-    // result += "\"light\":" + String(context.light) + ",";
-    // result += "\"fanSpeed\":" + String(context.fanSpeed) + ",";
-    result += "\"timestamp\":" + String(data.timestamp);
-    result += "}";
-    return result;
-}
 
 void serverSendContext() {
   char buff[20];
-    String result = 
-     "{";
+    String result = "{";
         result += "\"me\": \"" + String(hostname) + "\",";
-        result += "\"webcam\": \"" + String(webcam) + "\",";
-        result += "\"fsMounted\": \"" + String(fsMounted) + "\",";
         result += "\"light\": " + String(context.light) + ",";
+        result += "\"temperature\":" + String(context.temperature) + ",";
+        result += "\"humidity\":" + String(context.humidity) + ",";
+        result += "\"pressure\":" + String(context.pressure) + ",";
+        result += "\"timestamp\":" + String(context.timestamp) + ",";
+        result += "\"dewPoint\":" + String(context.dewPoint) + ",";
+        result += "\"heatIndex\":" + String(context.heatIndex) + ",";
+        result += "\"timestamp\":" + String(context.timestamp) + ",";
         result += "\"fanSpeed\":" + String(context.fanSpeed);
+
         result += ", \"lightSchedule\": {";
           result += " \"sunScheduleEnabled\" :" + String(context.sunScheduleEnabled ? "true" : "false");
           result += ",\"sunrise\" :" + String(context.sunrise);
           result += ",\"sunDuration\" :" + String(context.sunDuration);
           result += ",\"sunTargetLight\" :" + String(context.sunTargetLight);
-          result += ",\"rise\" :\"" + String(rise.tostr(buff)) + "\"";
-          result += ",\"set\" :\"" + String(set.tostr(buff)) + "\"";
-          result += ",\"now\" :\"" + String(now.tostr(buff)) + "\"";
         result += "}";
-      if (bmeAvailable) {
-        result += ", \"bme\": " + bmeToJson(bmeData);
-        result += ", \"bmeRetained\": [";
-        for(int i = 0; i < bmeDataRetained.getSize(); i++) {
-           result += (i != 0 ? ", " : "") + bmeToJson(bmeDataRetained[i]);
-        }
-        result += "]";
-      }
+
     result += "}";
     
     server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
@@ -235,12 +160,6 @@ void serverSendInvalidRequest() {
 }
 
 // REQUEST HANDLERS #####################################
-
-void handleRoot() {
-  server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
-  server.send(200, "text/html", HTML_INDEX);
-}
-
 void handleGet() {
   serverSendContext();
 }
@@ -346,31 +265,14 @@ void handleNotFound() {
   server.send(404, "text/plain", message);
 }
 
-void handleClear() {
-  bmeRetentionDelete();
-  serverSendContext();
-}
-
-void handleFavIcon() {
-  server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
-  server.send(200, "image/x-icon", FAV_ICON, FAV_ICON_SIZE);
-}
-
-// dewpoint:
-//       return (243.5*(log(id(bme280_humidity).state/100)+((17.67*id(bme280_temperature).state)/
-//       (243.5+id(bme280_temperature).state)))/(17.67-log(id(bme280_humidity).state/100)-
-//       ((17.67*id(bme280_temperature).state)/(243.5+id(bme280_temperature).state))));
-
 void configureRoutes() {
   server.enableCORS(true);
-  server.on("/", handleRoot);
-  server.on("/favicon.ico", handleFavIcon);
+  
   server.on("/get", handleGet);
-  server.on("/clear", handleClear);
   server.on("/fan/set", HTTP_POST, handleFanSet);
   server.on("/light/set", HTTP_POST, handleLightSet);
   server.on("/light/schedule/set", HTTP_POST, handleLightScheduleSet);
-  
+
   server.onNotFound(handleNotFound);
 }
 
@@ -400,23 +302,86 @@ void blink(unsigned int ms)
   delay(half);
 }
 
-void readBMEData() {
-  if (bmeAvailable) {
-    bmeData.timestamp = mytime;
-    bmeData.humidity = bme.readHumidity();
-    bmeData.pressure = bme.readPressure();
-    bmeData.temperature = bme.readTemperature();
+#define hi_coeff1 -42.379
+#define hi_coeff2   2.04901523
+#define hi_coeff3  10.14333127
+#define hi_coeff4  -0.22475541
+#define hi_coeff5  -0.00683783
+#define hi_coeff6  -0.05481717
+#define hi_coeff7   0.00122874
+#define hi_coeff8   0.00085282
+#define hi_coeff9  -0.00000199
+float HeatIndex(float temperature, float humidity)
+{
+  float heatIndex(NAN);
+  if (isnan(temperature) || isnan(humidity)) 
+  {
+    return heatIndex;
+  }
 
-    if (bmeDataRetained.getSize() == 0 
-      || bmeData.timestamp - bmeDataRetained[0].timestamp > bmeDataRetentionDelay) {
-        // retain every hour or immidiatly for the first.
-        bmeDataRetained.addFirst(bmeData);
-        // truncate if enough
-        if (bmeDataRetained.getSize() > bmeDataRetention) {
-          bmeDataRetained.removeLast();
-        }
-        bmeRetentionSaveChanges();
+  temperature = (temperature * (9.0 / 5.0) + 32.0); /*conversion to [°F]*/
+  // Using both Rothfusz and Steadman's equations
+  // http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
+  if (temperature <= 40) 
+  {
+    heatIndex = temperature;	//first red block
+  }
+  else
+  {
+    heatIndex = 0.5 * (temperature + 61.0 + ((temperature - 68.0) * 1.2) + (humidity * 0.094));	//calculate A -- from the official site, not the flow graph
+
+    if (heatIndex >= 79) 
+    {
+      /*
+      * calculate B  
+      * the following calculation is optimized. Simply spoken, reduzed cpu-operations to minimize used ram and runtime. 
+      * Check the correctness with the following link:
+      * http://www.wolframalpha.com/input/?source=nav&i=b%3D+x1+%2B+x2*T+%2B+x3*H+%2B+x4*T*H+%2B+x5*T*T+%2B+x6*H*H+%2B+x7*T*T*H+%2B+x8*T*H*H+%2B+x9*T*T*H*H
+      */
+      heatIndex = hi_coeff1
+      + (hi_coeff2 + hi_coeff4 * humidity + temperature * (hi_coeff5 + hi_coeff7 * humidity)) * temperature
+      + (hi_coeff3 + humidity * (hi_coeff6 + temperature * (hi_coeff8 + hi_coeff9 * temperature))) * humidity;
+      //third red block
+      if ((humidity < 13) && (temperature >= 80.0) && (temperature <= 112.0))
+      {
+        heatIndex -= ((13.0 - humidity) * 0.25) * sqrt((17.0 - abs(temperature - 95.0)) * 0.05882);
+      } //fourth red block
+      else if ((humidity > 85.0) && (temperature >= 80.0) && (temperature <= 87.0))
+      {
+        heatIndex += (0.02 * (humidity - 85.0) * (87.0 - temperature));
+      }
     }
+  }
+  return (heatIndex - 32.0) * (5.0 / 9.0); /*conversion back to [°C]*/
+}
+
+float DewPoint(float temp, float hum)
+{
+  // Equations courtesy of Brian McNoldy from http://andrew.rsmas.miami.edu;
+  float dewPoint = NAN;
+  if(!isnan(temp) && !isnan(hum))
+  {
+       dewPoint = 243.04 * (log(hum/100.0) + ((17.625 * temp)/(243.04 + temp)))
+       /(17.625 - log(hum/100.0) - ((17.625 * temp)/(243.04 + temp)));
+  }
+
+  return dewPoint;
+}
+
+void updateContext() {
+  context.timestamp = mytime;  
+  if (bmeAvailable) {
+    context.humidity = bme.readHumidity();
+    context.pressure = bme.readPressure();
+    context.temperature = bme.readTemperature();
+    context.dewPoint = DewPoint(context.temperature, context.humidity);
+    context.heatIndex = HeatIndex(context.temperature, context.humidity);
+  } else {
+    context.humidity = 0;
+    context.pressure = 0;
+    context.temperature = 0;
+    context.dewPoint = 0;
+    context.heatIndex = 0;
   }
 }
 
@@ -504,9 +469,6 @@ void setup() {
     fsMounted = false;
   }
 
-  // init retention
-  bmeRetentionInit();
-
   // init context
   contextInit();
 
@@ -554,8 +516,8 @@ void setup() {
   // initialize ntp
   initNtp();
 
-  // read initial bme after ntp init.
-  readBMEData();
+  // update context 
+  updateContext();
 
   // configure routes
   configureRoutes();
@@ -585,10 +547,7 @@ void loop() {
   server.handleClient();
 
   if (epochChanged && epoch % 2 == 0) {
-    if (bmeAvailable) {
-      readBMEData();
-    }
-
+    updateContext();
     if (context.sunScheduleEnabled) {
       sunSchedule();
     }
