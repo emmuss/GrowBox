@@ -1,5 +1,5 @@
 # Backend building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0-bullseye-slim-amd64 AS build
 WORKDIR /
 # Copy everything
 COPY ./ ./
