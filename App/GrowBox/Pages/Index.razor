@@ -16,8 +16,9 @@
     {
         @foreach (var growBox in _appState.GrowBoxes)
         {
-            <RadzenCard Variant="Variant.Filled">
-                <RadzenStack Gap="0.5rem">
+            <RadzenCard Variant="Variant.Filled" Style="cursor: pointer" 
+                        @onclick="@(() => NavigationManager.NavigateTo($"/growbox/{growBox.GrowBox.Id}"))">
+                            <RadzenStack Gap="0.5rem">
                     <RadzenStack JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem">
                         <RadzenIcon Icon="@growBox.GrowBox.Icon"/>
                         <RadzenText TextStyle="TextStyle.Subtitle1" style="margin-bottom: 0;">@growBox.GrowBox.Name</RadzenText>

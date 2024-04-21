@@ -43,14 +43,12 @@
                         <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_set.ToString(@"hh\:mm\:ss")</RadzenText>
                     </div>
                 }
-                @if (!string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamStreamUrl))
+                @if (!string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamStreamUrl) && 
+                     !string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamSnapshotUrl))
                 {
                     <a href="@_appGrowBox.GrowBox.WebCamStreamUrl" target="_blank">
-                        <img id="webCam" src="@_appGrowBox.GrowBox.WebCamStreamUrl" style="width: 100%; object-fit:cover; border-radius: 8px;" alt="Web Cam Loading..."/>
+                        <img id="webCam" src="@_appGrowBox.GrowBox.WebCamSnapshotUrl" style="width: 100%; object-fit:cover; border-radius: 8px;" alt="Web Cam Loading..."/>
                     </a>
-                }
-                @if (!string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamSnapshotUrl))
-                {
                     <RadzenButton Click=@(async args => { await _appGrowBox.Service.Snapshot(); await Js.WindowOpen(_appGrowBox.GrowBox.WebCamSnapshotUrl); }) Icon="photo_camera" ButtonStyle="ButtonStyle.Primary"/>
                 }
             </RadzenStack>
