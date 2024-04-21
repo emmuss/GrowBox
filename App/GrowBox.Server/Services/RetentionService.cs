@@ -77,4 +77,3 @@ public class RetentionService(ServerConfiguration config, IServiceProvider servi
         logger.LogInformation("Stopped.");
     }
 }
-

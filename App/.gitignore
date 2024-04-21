@@ -263,3 +263,4 @@ Docker/nzbget/nzbget.conf
 Server/appsettings.Development.json
 
 dist/
+DiarySnapshots/

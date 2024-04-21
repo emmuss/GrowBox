@@ -106,6 +106,7 @@ services:
     volumes:
       - /:/host/root
       - ../wwwroot:/wwwroot
+      - "${GROWBOX_DIARY_SNAPSHOTS}:/DiarySnapshots"
     restart: unless-stopped
     networks:
       - growbox-network

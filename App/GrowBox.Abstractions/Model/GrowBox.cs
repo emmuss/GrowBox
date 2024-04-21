@@ -43,5 +43,4 @@ public class GrowBox : IEntityBase
     /// </summary>
     [StringLength(1024)]
     public string? WebCamSnapshotUrl { get; set; } = string.Empty;
-
 }

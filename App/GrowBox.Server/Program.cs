@@ -18,6 +18,7 @@ services.AddEndpointsApiExplorer();
 services.AddSwaggerGen();
 services.AddEndpointDefinitions(typeof(Program));
 services.AddHostedService<RetentionService>();
+services.AddHostedService<DiarySnapshotService>();
 
 services.AddScoped<GrowBoxContext>();
 
