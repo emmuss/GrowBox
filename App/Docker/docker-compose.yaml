@@ -8,6 +8,7 @@ networks:
 
 services:
   growbox-webcam-1:
+    privileged: true
     profiles:
       - webcam-1
       - webcam-2
@@ -25,6 +26,7 @@ services:
     networks:
       - growbox-network
   growbox-webcam-2:
+    privileged: true
     profiles:
       - webcam-2
       - webcam-3
@@ -41,6 +43,7 @@ services:
     networks:
       - growbox-network
   growbox-webcam-3:
+    privileged: true
     profiles:
       - webcam-3
       - webcam-4
@@ -56,6 +59,7 @@ services:
     networks:
       - growbox-network
   growbox-webcam-4:
+    privileged: true
     profiles:
       - webcam-4
     image: davidhamm/mjpg-streamer
