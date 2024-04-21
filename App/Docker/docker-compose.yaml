@@ -91,7 +91,7 @@ services:
       - growbox-network
   
   growbox-server:
-    build: ../
+    image: emmuss/growbox
     user: "${PUID}:${PGID}"
     ports:
       - "${GROWBOX_PORT}:${GROWBOX_PORT}"
