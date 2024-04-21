@@ -26,6 +26,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: "{{defaultContext}}:App"
-          platforms: linux/arm64,linux/amd64,linux/arm/v7
+          platforms: linux/arm64,linux/amd64
           push: true
           tags: emmuss/growbox:latest
