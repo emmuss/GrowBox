@@ -1,0 +1,44 @@
+volumes:
+  growbox-postgres-data:
+
+networks:
+  growbox-network:
+    name: growbox-network
+    driver: bridge
+
+services:
+  growbox-postgres:
+    image: postgres
+    container_name: growbox-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /data/postgres
+    volumes:
+       - growbox-postgres-data:/data/postgres
+       - growbox-postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${PORT_POSTGRES}:${PORT_POSTGRES}"
+    restart: unless-stopped
+    networks:
+      - growbox-network
+  
+  growbox-server:
+    build: ../
+    user: "${PUID}:${PGID}"
+    ports:
+      - "${GROWBOX_PORT}:${GROWBOX_PORT}"
+    container_name: growbox-server
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=${GROWBOX_URLS}
+      - Logging__LogLevel__Default=Error
+      - Configuration__PgSqlConnectionString=Host=growbox-postgres:${PORT_POSTGRES};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Database=growbox
+    volumes:
+      - /:/host/root
+      - ../wwwroot:/wwwroot
+    restart: unless-stopped
+    networks:
+      - growbox-network

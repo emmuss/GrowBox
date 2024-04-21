@@ -1,0 +1,6 @@
+@GrowBox.Server_HostAddress = http://localhost
+
+GET {{GrowBox.Server_HostAddress}}/api/Get/GrowBox%5B%5D
+Accept: application/json
+
+###

@@ -13,6 +13,7 @@
 #include <RTClib.h>
 #include "FS.h"
 #include <LittleFS.h>
+#include "time.h"
 
 #include "index.h"
 #include "favicon.h"
@@ -28,12 +29,15 @@
 const char* hostname = "GrowBox01";
 const char* ssid = SECRET_SSID;    // your network SSID (name)
 const char* pass = SECRET_PASS;    // your network password
-const char* webcam = "http://192.168.178.197/";
+const char* webcam = "http://192.168.178.200:8081/";
 
 // Timezone rule / NTP Servers
 const char* time_zone = "CET-1CEST,M3.5.0,M10.5.0/3"; // (Berlin)
+const long  gmtOffset_sec = 3600;
+const int   daylightOffset_sec = 3600;
 #define NTP_SERVERS "0.de.pool.ntp.org", "1.de.pool.ntp.org", "2.de.pool.ntp.org"
 #define NTP_MIN_VALID_EPOCH 1533081600
+#define mytime time(nullptr) + 7200
 
 ESP8266WebServer server(80);
 Adafruit_BME280 bme;
@@ -81,6 +85,9 @@ const int CONTEXT_MARKER_SIZE = 4;
 Context context;
 bool bmeAvailable = false;
 bool fsMounted = false;
+DateTime rise;
+DateTime set;
+DateTime now;
 
 // Errors
 const char * parsingFailed = "Parsing JSON input failed!";
@@ -178,6 +185,7 @@ String bmeToJson(BMEData data) {
 }
 
 void serverSendContext() {
+  char buff[20];
     String result = 
      "{";
         result += "\"me\": \"" + String(hostname) + "\",";
@@ -186,11 +194,13 @@ void serverSendContext() {
         result += "\"light\": " + String(context.light) + ",";
         result += "\"fanSpeed\":" + String(context.fanSpeed);
         result += ", \"lightSchedule\": {";
-          result += " \"sunScheduleEnabled\" :" + String(context.sunScheduleEnabled);
+          result += " \"sunScheduleEnabled\" :" + String(context.sunScheduleEnabled ? "true" : "false");
           result += ",\"sunrise\" :" + String(context.sunrise);
           result += ",\"sunDuration\" :" + String(context.sunDuration);
-          result += ",\"sunriseSetDuration\" :" + String(context.sunriseSetDuration);
           result += ",\"sunTargetLight\" :" + String(context.sunTargetLight);
+          result += ",\"rise\" :\"" + String(rise.tostr(buff)) + "\"";
+          result += ",\"set\" :\"" + String(set.tostr(buff)) + "\"";
+          result += ",\"now\" :\"" + String(now.tostr(buff)) + "\"";
         result += "}";
       if (bmeAvailable) {
         result += ", \"bme\": " + bmeToJson(bmeData);
@@ -201,7 +211,8 @@ void serverSendContext() {
         result += "]";
       }
     result += "}";
-
+    
+    server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
     server.send(200, "application/json", result.c_str());
 }
 
@@ -211,6 +222,7 @@ bool serverParseJson(JSONVar* jsonInput) {
   // JSON.typeof(jsonVar) can be used to get the type of the variable 
   if (JSON.typeof(*jsonInput) == "undefined") { 
     Serial.println(parsingFailed);
+    server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
     server.send(400, "text/plain", parsingFailed);
     return false; 
   }
@@ -218,12 +230,14 @@ bool serverParseJson(JSONVar* jsonInput) {
 }
 
 void serverSendInvalidRequest() {
+  server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
   server.send(400, "text/plain", invalidRequest); 
 }
 
 // REQUEST HANDLERS #####################################
 
 void handleRoot() {
+  server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
   server.send(200, "text/html", HTML_INDEX);
 }
 
@@ -288,13 +302,6 @@ void handleLightScheduleSet() {
     scheduleChanged = true;
   }
    
-  if (jsonInput.hasOwnProperty("sunriseSetDuration")) { 
-    context.sunriseSetDuration = (int32_t)jsonInput["sunriseSetDuration"];
-    Serial.print("sunriseSetDuration set to ");
-    Serial.println(context.sunriseSetDuration);
-    scheduleChanged = true;
-  }
-   
   if (jsonInput.hasOwnProperty("sunTargetLight")) { 
     context.sunTargetLight = (unsigned char)jsonInput["sunTargetLight"];
     Serial.print("sunTargetLight set to ");
@@ -317,6 +324,15 @@ void handleLightScheduleSet() {
 }
 
 void handleNotFound() {
+  if (server.method() == HTTP_OPTIONS)
+  {
+    server.sendHeader("Access-Control-Max-Age", "10000");
+    server.sendHeader("Access-Control-Allow-Methods", "PUT,POST,GET,DELETE");
+    server.sendHeader("Access-Control-Allow-Headers", "*");
+    server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
+    server.send(200);
+    return;
+  }
   String message = "File Not Found\n\n";
   message += "URI: ";
   message += server.uri();
@@ -326,6 +342,7 @@ void handleNotFound() {
   message += server.args();
   message += "\n";
   for (uint8_t i = 0; i < server.args(); i++) { message += " " + server.argName(i) + ": " + server.arg(i) + "\n"; }
+  server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
   server.send(404, "text/plain", message);
 }
 
@@ -335,6 +352,7 @@ void handleClear() {
 }
 
 void handleFavIcon() {
+  server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
   server.send(200, "image/x-icon", FAV_ICON, FAV_ICON_SIZE);
 }
 
@@ -344,6 +362,7 @@ void handleFavIcon() {
 //       ((17.67*id(bme280_temperature).state)/(243.5+id(bme280_temperature).state))));
 
 void configureRoutes() {
+  server.enableCORS(true);
   server.on("/", handleRoot);
   server.on("/favicon.ico", handleFavIcon);
   server.on("/get", handleGet);
@@ -358,10 +377,12 @@ void configureRoutes() {
 // SETUP / LOOP #########################################
 
 void initNtp() {
-  time_t now;
-  configTzTime(time_zone, NTP_SERVERS);
+  time_t n;
+  configTime(0, 0, NTP_SERVERS);
+  setenv("TZ", time_zone, 1);     
+  tzset();
   Serial.print("Wait for valid ntp response.");
-  while((now = time(nullptr)) < NTP_MIN_VALID_EPOCH) {
+  while((n = mytime) < NTP_MIN_VALID_EPOCH) {
     blink(500);
     Serial.print(".");
   }
@@ -381,7 +402,7 @@ void blink(unsigned int ms)
 
 void readBMEData() {
   if (bmeAvailable) {
-    bmeData.timestamp = time(nullptr);
+    bmeData.timestamp = mytime;
     bmeData.humidity = bme.readHumidity();
     bmeData.pressure = bme.readPressure();
     bmeData.temperature = bme.readTemperature();
@@ -399,11 +420,11 @@ void readBMEData() {
   }
 }
 
-void sunSchedule(DateTime now) {
+void sunSchedule() {
   DateTime lastRise = DateTime(now.year(), now.month(), now.day()-1, 0, 0, 0) + context.sunrise;
   DateTime lastSet = lastRise + context.sunDuration;
-  DateTime rise = DateTime(now.year(), now.month(), now.day(), 0, 0, 0) + context.sunrise;
-  DateTime set = rise + context.sunDuration;
+  DateTime nowrise = DateTime(now.year(), now.month(), now.day(), 0, 0, 0) + context.sunrise;
+  DateTime nowset = nowrise + context.sunDuration;
   char buff[20];
   Serial.println("SUN SCHEDULE ####################");
   Serial.printf("NOW: %s", now.tostr(buff)); Serial.println();
@@ -411,47 +432,20 @@ void sunSchedule(DateTime now) {
   Serial.printf("Last Set: %s", lastSet.tostr(buff)); Serial.println();
   Serial.printf("Rise: %s", rise.tostr(buff)); Serial.println();
   Serial.printf("Set: %s", set.tostr(buff)); Serial.println();
-
   if(lastSet > now) {
     rise = lastRise;
     set = lastSet;
+  } else {
+    rise = nowrise;
+    set = nowset;
   }
   Serial.printf("Picked Rise: %s", rise.tostr(buff)); Serial.println();
   Serial.printf("Picked Set: %s", set.tostr(buff)); Serial.println();
-  
-  double target = 0;
-  bool isRise = false;
-  bool isSet = false;
-  int32_t riseDiff = (now - rise).totalseconds();
-  Serial.printf("riseDiff = %d", riseDiff); Serial.println();
-  if (riseDiff > 0 && riseDiff <= context.sunriseSetDuration) {
-    target = (double)riseDiff / (double)context.sunriseSetDuration;
-    isRise = true;
+  char targetLight = 255;
+  if (now > rise && now <= set) { 
+    targetLight = context.sunTargetLight;
   }
-  Serial.printf("afterRise: target = %f, isRise = %d", target, isRise); Serial.println();
-  int32_t setDiff = (now - (set - context.sunriseSetDuration)).totalseconds();
-  Serial.printf("setDiff = %d", setDiff); Serial.println();
-  if (setDiff > 0 && setDiff <= context.sunriseSetDuration) {
-    target = 1.0 - ((double)setDiff / (double)context.sunriseSetDuration);
-    isSet = true;
-  }
-  Serial.printf("target afterSet: %f, isSet = %d", target, isSet); Serial.println();
-  bool riseOrSet = isRise || isSet;
-  if (!riseOrSet) {
-    if (now > rise && now < set) {
-      Serial.println("day");
-      target = 1;
-    } else {
-      Serial.println("night");
-      target = 0;
-    }
-  }  
-  Serial.printf("final target: %f, riseOrSet = %d", target, riseOrSet); Serial.println();
-
-  double sunTargetLight = 255 - context.sunTargetLight;
-  double dtl = target * sunTargetLight;
-  char targetLight = 255 - dtl;
-  Serial.printf("targetLight = %d, dtl = %f, sunTargetLight = %f, ", (int)targetLight, dtl, sunTargetLight); Serial.println();
+  Serial.printf("targetLight = %d", (int)targetLight); Serial.println();
   if (context.light != targetLight) {
     context.light = targetLight;
     analogWrite(pLight, context.light);
@@ -577,8 +571,8 @@ void setup() {
 
 time_t lastEpoch = 0;
 void loop() {
-  time_t epoch = time(nullptr);
-  DateTime now = DateTime(epoch);
+  time_t epoch = mytime;
+  now = DateTime(epoch);
   bool epochChanged = epoch != lastEpoch;
 
   // update mdns
@@ -596,7 +590,7 @@ void loop() {
     }
 
     if (context.sunScheduleEnabled) {
-      sunSchedule(now);
+      sunSchedule();
     }
   }
 

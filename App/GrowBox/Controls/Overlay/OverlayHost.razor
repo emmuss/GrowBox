@@ -1,0 +1,27 @@
+@using System.Collections.ObjectModel
+
+@inject IOverlayService OverlayService
+@implements IOverlayHost
+
+
+<div class="overlay-host">
+    @foreach(var overlayInstance in _overlayInstances)
+    {
+        @overlayInstance.RenderFragment
+    }
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+    private readonly ObservableCollection<OverlayInstance> _overlayInstances = new ObservableCollection<OverlayInstance>();
+
+    IList<OverlayInstance> IOverlayHost.OverlayInstances => _overlayInstances;
+
+    protected override void OnInitialized()
+    {
+        _overlayInstances.CollectionChanged += async (_, _) => await InvokeAsync(StateHasChanged);
+        OverlayService.SetOverlayHost(this);
+        base.OnInitialized();
+    }
+}

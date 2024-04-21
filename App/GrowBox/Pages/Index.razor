@@ -1,0 +1,63 @@
+﻿@using GrowBox.Services
+@using GrowBox.State
+
+@page "/"
+@attribute [NavigationPage("GrowBoxes", icon: "yard", sort: 0, subItemProvider: typeof(GrowBoxPageSubItemsProvider))]
+
+@implements IDisposable
+
+@inject App App
+@inject NavigationManager NavigationManager
+
+@if (_appState != null) 
+{
+    <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
+    @if (_appState.GrowBoxes.Length > 0)
+    {
+        @foreach (var growBox in _appState.GrowBoxes)
+        {
+            <RadzenCard Variant="Variant.Filled">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenStack JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem">
+                        <RadzenIcon Icon="@growBox.GrowBox.Icon"/>
+                        <RadzenText TextStyle="TextStyle.Subtitle1" style="margin-bottom: 0;">@growBox.GrowBox.Name</RadzenText>
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        }
+    }
+    else
+    {
+        <RadzenCard Variant="Variant.Filled">
+            <RadzenStack Gap="0.5rem">
+                <RadzenStack JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem">
+                    <RadzenText Text="There are no GrowBoxes, create one!"/>
+                    <RadzenButton Icon="add_circle" ButtonStyle="ButtonStyle.Primary" Click=@(() => NavigationManager.NavigateTo($"/growbox/create")) />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+    }
+    </RadzenStack>    
+}
+
+
+@code
+{
+    private AppState? _appState;
+    private readonly List<IDisposable> _disposables = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _disposables.Add(
+            App.AppState.Subscribe(appState => {
+                _appState = appState;
+                StateHasChanged();
+            }));
+        await base.OnInitializedAsync();
+    }
+
+    void IDisposable.Dispose()
+    {
+        _disposables.ForEach(x => x.Dispose());
+    }
+}

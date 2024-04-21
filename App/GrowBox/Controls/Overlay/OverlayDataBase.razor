@@ -1,0 +1,18 @@
+@typeparam TOverlayData
+@implements IOverlayBase
+
+@code{
+    [Parameter]
+    public IOverlayService OverlayService { get; set; } = default!;
+
+    [Parameter]
+    public TOverlayData? OverlayData { get; set; }
+    
+    [Parameter]
+    public Guid InstanceId { get; set; } = default!;
+
+    public void Succeed()
+        => OverlayService.CloseOverlay(this, new OverlayResult<TOverlayData>(true, OverlayData));
+    public void Fail()
+        => OverlayService.CloseOverlay(this, new OverlayResult<TOverlayData>(false, OverlayData));
+}

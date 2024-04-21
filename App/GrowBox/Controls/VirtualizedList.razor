@@ -1,0 +1,43 @@
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+
+@typeparam TItem 
+
+@if(ItemsProvider != null || Items != null)
+{
+    <Virtualize @ref="Virtualize" ItemsProvider="@ItemsProvider" Items="@Items" Placeholder="@Placeholder" ItemContent="@ItemTemplate"/>
+}
+
+@code {
+    public Virtualize<TItem> Virtualize { get; private set; } = default!;
+    /// <summary>
+    /// Gets or sets the function providing items to the list.
+    /// </summary>
+    [Parameter]
+    public ItemsProviderDelegate<TItem>? ItemsProvider { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fixed item source.
+    /// </summary>
+    [Parameter]
+    public ICollection<TItem>? Items { get; set; }
+
+    /// <summary>
+    /// Gets or sets the item template for the list.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<TItem>? ChildContent { get; set; }
+
+    /// <summary>
+    /// Gets or sets the item template for the list.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<TItem>? ItemContent { get; set; }
+
+    private RenderFragment<TItem>? ItemTemplate => ItemContent ?? ChildContent;
+
+    /// <summary>
+    /// Gets or sets the template for items that have not yet been loaded in memory.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<PlaceholderContext>? Placeholder { get; set; }
+}

@@ -1,0 +1,141 @@
+﻿@using GrowBox.Services
+@using GrowBox.State
+
+@page "/growbox/{GrowBoxId:guid}/settings"
+
+@implements IDisposable
+
+@inject App App
+@inject IJSRuntime Js
+@inject NavigationManager NavigationManager
+
+@if (_root != null && _appGrowBox != null) 
+{
+    <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+            <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Dark" Click=@(() => Js.InvokeVoidAsync("history.back")) />
+        </RadzenStack>
+        <RadzenCard Variant="Variant.Filled">
+            <RadzenStack Gap="1rem">
+                <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                    <RadzenIcon Icon="tune" /> 
+                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Fan Speed</RadzenText>
+                </div>
+                <RadzenSlider Value=@_fanSpeed TValue="int" style="width: 100%;" Step="1" Min="0" Max="255" ValueChanged="(val) => { _fanSpeed = val; _appGrowBox.Service.UpdateFanSpeed(255 - val); }" />
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard Variant="Variant.Filled">
+            <RadzenStack Gap="1rem">
+                <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                    <RadzenIcon Icon="brightness_low" /> 
+                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Light</RadzenText>
+                </div>
+                <RadzenSlider Value=@_light TValue="int" style="width: 100%;" Step="19" Min="-190" Max="0" ValueChanged="(val) => { _light = val; UpdateLight(); }" />
+                <div>
+                    <RadzenCheckBox Value=@_sunScheduleEnabled TValue="bool" ValueChanged="(val) => { _sunScheduleEnabled = val; UpdateLight(); }" Name="_sunScheduleEnabled" >  </RadzenCheckBox>
+                    <RadzenLabel Text="Enable Sun Schedule" Component="_sunScheduleEnabled" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_rise.ToString(@"hh\:mm\:ss")</RadzenText>
+                    <div style="display: flex; justify-content: start; align-items: center;">
+                        <RadzenIcon Icon="north_east" />
+                        <RadzenIcon Icon="sunny" /> 
+                    </div>                    
+                    <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_sunDuration.ToString(@"hh\:mm\:ss")</RadzenText>
+                    <div style="display: flex; justify-content: start; align-items: center;">
+                        <RadzenIcon Icon="sunny" /> 
+                        <RadzenIcon Icon="south_east" />
+                    </div>                    
+                    <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_set.ToString(@"hh\:mm\:ss")</RadzenText>
+                </div>
+                <RadzenSlider Range="true" Value=@RiseAndSet TValue="IEnumerable<int>" style="width: 100%;" Step="1800" Min="0" Max="86400" ValueChanged="(values) => { RiseAndSet = values; UpdateLight(); }" />
+            </RadzenStack>
+        </RadzenCard>
+        
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
+            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Click=@(async () => { await App.DeleteGrowBox(_appGrowBox.GrowBox); NavigationManager.NavigateTo("/"); } ) />
+        </RadzenStack>
+    </RadzenStack>    
+}
+
+
+@code
+{
+    private AppGrowBox? _appGrowBox;
+    private GrowBoxRoot? _root;
+    private readonly List<IDisposable> _subscriptions = [];
+    
+
+    private bool _sunScheduleEnabled = false;
+
+    TimeSpan _rise = TimeSpan.Zero;
+    TimeSpan _sunDuration = TimeSpan.Zero;
+    TimeSpan _set = TimeSpan.Zero;
+
+    IEnumerable<int> _riseAndSet = new int[] { 21600, 21600 + 64800 };
+    IEnumerable<int> RiseAndSet { get => _riseAndSet; set => SetRiseAndSet(value); }
+
+    private void SetRiseAndSet(IEnumerable<int> values)
+    {
+        var riseAndSet = values as int[] ?? values.ToArray();
+        _riseAndSet = riseAndSet;
+        _rise = TimeSpan.FromSeconds(riseAndSet.First());
+        _set = TimeSpan.FromSeconds(riseAndSet.Last());
+        _sunDuration = _set - _rise;
+    }
+
+    private int _fanSpeed = 0;
+    private int _light = 0;
+    
+    [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (GrowBoxId == Guid.Empty)
+        {
+            base.OnParametersSet();
+            return;
+        }
+        
+        IDisposable idSub = default!;
+        idSub = App.AppState.Subscribe(appState =>
+        {
+            _appGrowBox = appState.GrowBoxes.FirstOrDefault(y => y.GrowBox.Id == GrowBoxId);
+            if (_appGrowBox is null)
+                return;
+            _subscriptions.Add(
+                _appGrowBox.Service.GrowBoxRoot.Subscribe(root => {
+                    _root = root;
+                    _fanSpeed = 255 - _root?.FanSpeed ?? 0;
+                    var light = (_root?.LightSchedule?.SunScheduleEnabled ?? false) ? _root.LightSchedule.SunTargetLight : (_root?.Light ?? 255);
+                    _light = ((light) - 40)*-1;
+                    var rise = _root?.LightSchedule?.Sunrise ?? 21600;
+                    var set = rise + (_root?.LightSchedule?.SunDuration ?? 64800);
+                    RiseAndSet = [rise, set];
+                    _sunScheduleEnabled = _root?.LightSchedule?.SunScheduleEnabled ?? false;
+                    StateHasChanged();
+                }));
+            _appGrowBox.Service.UpdateAsync();
+            // ReSharper disable once AccessToModifiedClosure
+            // we want to dispose ourself after init.
+            idSub.Dispose();
+        });
+        
+        base.OnParametersSet();
+    }
+
+    private void UpdateLight()
+    {
+        var val = _light;
+        var s = (val*-1 + 40);
+        s = s > 255 ? 255 : s;
+        s = s < 0   ? 0   : s;
+        _appGrowBox?.Service.UpdateLight(s, _sunScheduleEnabled, RiseAndSet.First(), RiseAndSet.Last() - RiseAndSet.First());
+    }
+
+    public void Dispose()
+    {
+        _subscriptions.ForEach(x => x.Dispose());
+    }
+}

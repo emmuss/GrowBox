@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrowBox", "GrowBox\GrowBox.csproj", "{064E64A3-ACBD-4645-BCDC-598140E1010F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrowBox.Server", "GrowBox.Server\GrowBox.Server.csproj", "{B02D649F-5F0A-495C-ACB3-DAF781E131F0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrowBox.Abstractions", "GrowBox.Abstractions\GrowBox.Abstractions.csproj", "{50BE2DD5-B876-440E-885E-EC98BA5DD848}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Items", "Items", "{8BD275A8-1B14-40D4-8F06-B3AEA4C317EF}"
+	ProjectSection(SolutionItems) = preProject
+		.dockerignore = .dockerignore
+		.editorconfig = .editorconfig
+		.gitignore = .gitignore
+		Dockerfile = Dockerfile
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{064E64A3-ACBD-4645-BCDC-598140E1010F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{064E64A3-ACBD-4645-BCDC-598140E1010F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{064E64A3-ACBD-4645-BCDC-598140E1010F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{064E64A3-ACBD-4645-BCDC-598140E1010F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B02D649F-5F0A-495C-ACB3-DAF781E131F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B02D649F-5F0A-495C-ACB3-DAF781E131F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B02D649F-5F0A-495C-ACB3-DAF781E131F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B02D649F-5F0A-495C-ACB3-DAF781E131F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{50BE2DD5-B876-440E-885E-EC98BA5DD848}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{50BE2DD5-B876-440E-885E-EC98BA5DD848}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{50BE2DD5-B876-440E-885E-EC98BA5DD848}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{50BE2DD5-B876-440E-885E-EC98BA5DD848}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

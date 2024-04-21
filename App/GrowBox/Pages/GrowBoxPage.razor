@@ -1,0 +1,128 @@
+﻿@using GrowBox.Controls.GrowBoxChart
+@using GrowBox.State
+
+@page "/growbox/{GrowBoxId:guid}"
+
+@implements IAsyncDisposable
+
+@inject App App
+@inject NavigationManager NavigationManager
+@inject IJSRuntime Js
+
+@if (_appGrowBox != null && _root != null) 
+{
+    <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
+            <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/settings")) />
+        </RadzenStack>
+        <RadzenCard Variant="Variant.Filled">
+            <RadzenStack Gap="0.5rem">
+                <RadzenText TextStyle="TextStyle.Subtitle1" TextAlign="TextAlign.Center" style="margin-bottom: 0;">@_appGrowBox.GrowBox.Name</RadzenText>
+                <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" style="margin-bottom: 0; font-size: 3rem; font-weight: 100;">@Math.Round(_root.Bme.Temperature) °C</RadzenText>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0">
+                    <RadzenIcon Icon="water_drop"/> <span>@Math.Round(_root.Bme.Humidity, 1) %</span>
+                    <span class="mx-2">|</span>
+                    <span>@(Math.Round(_root.Bme.Pressure / 100, 1)) hpa</span>
+                </RadzenStack>
+                @if (_root.LightSchedule.SunScheduleEnabled)
+                {
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_rise.ToString(@"hh\:mm\:ss")</RadzenText>
+                        <div style="display: flex; justify-content: start; align-items: center;">
+                            <RadzenIcon Icon="north_east"/>
+                            <RadzenIcon Icon="sunny"/>
+                        </div>
+                        <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_sunDuration.ToString(@"hh\:mm\:ss")</RadzenText>
+                        <div style="display: flex; justify-content: start; align-items: center;">
+                            <RadzenIcon Icon="sunny"/>
+                            <RadzenIcon Icon="south_east"/>
+                        </div>
+                        <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_set.ToString(@"hh\:mm\:ss")</RadzenText>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamStreamUrl))
+                {
+                    <a href="@_appGrowBox.GrowBox.WebCamStreamUrl" target="_blank">
+                        <img id="webCam" src="@_appGrowBox.GrowBox.WebCamStreamUrl" style="width: 100%; object-fit:cover; border-radius: 8px;" alt="Web Cam Loading..."/>
+                    </a>
+                }
+                @if (!string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamSnapshotUrl))
+                {
+                    <RadzenButton Click=@(async args => { await _appGrowBox.Service.Snapshot(); await Js.WindowOpen("./snapshots/lastsnap.jpg"); }) Icon="photo_camera" ButtonStyle="ButtonStyle.Primary"/>
+                }
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard Variant="Variant.Filled">
+            <GrowBoxChart Data="@_root"/>
+        </RadzenCard>
+        
+    </RadzenStack>    
+}
+
+
+@code
+{
+    private AppGrowBox? _appGrowBox;
+    private GrowBoxRoot? _root;
+    private readonly List<IDisposable> _subscriptions = new();
+
+    TimeSpan _rise = TimeSpan.Zero;
+    TimeSpan _sunDuration = TimeSpan.Zero;
+    TimeSpan _set = TimeSpan.Zero;
+    
+    [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
+    
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_appGrowBox is not null)
+            await _appGrowBox.Service.Stop();
+        _appGrowBox = null;
+        _root = null;
+        _subscriptions.ForEach(x => x.Dispose());
+        _subscriptions.Clear();
+        
+        if (GrowBoxId == Guid.Empty)
+        {
+            return;
+        }
+        
+        IDisposable idSub = default!;
+        idSub = App.AppState.Subscribe(appState =>
+        {
+            _appGrowBox = appState.GrowBoxes.FirstOrDefault(y => y.GrowBox.Id == GrowBoxId);
+            if (_appGrowBox is null)
+                return;
+            _subscriptions.Add(
+                _appGrowBox.Service.GrowBoxRoot.Subscribe(root => {
+                    _root = root;
+                    var rise = _root?.LightSchedule?.Sunrise ?? 21600;
+                    var set = rise + (_root?.LightSchedule?.SunDuration ?? 64800);
+                    _rise = TimeSpan.FromSeconds(rise);
+                    _set = TimeSpan.FromSeconds(set);
+                    _sunDuration = _set - _rise;
+                    StateHasChanged();
+                }));
+            _appGrowBox.Service.Start();
+            // ReSharper disable once AccessToModifiedClosure
+            // we want to dispose ourself after init.
+            idSub.Dispose();
+        });
+    }
+
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        // hacky way to disable the stream after page navigation, BLAZOR BUG!
+        if (!string.IsNullOrEmpty(_appGrowBox?.GrowBox.WebCamStreamUrl))
+        {
+            await Js.InvokeVoidAsync("eval", "document.getElementById('webCam').src = 'https://i.imgur.com/c24qDz2_d.jpeg?maxwidth=520&shape=thumb&fidelity=high'");
+        }
+
+        if (_appGrowBox is not null)
+            await _appGrowBox.Service.Stop();
+
+        _root = null;
+        _subscriptions.ForEach(x => x.Dispose());
+    }
+}

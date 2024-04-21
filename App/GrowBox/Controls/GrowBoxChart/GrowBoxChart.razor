@@ -1,0 +1,49 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+<div style="display: flex; position: relative; width: 100%; height: 180px; justify-content: center;">
+    <canvas id="@_chartId"></canvas>
+</div>
+
+@code {
+    private readonly string _chartId = "growbox-chart-" + Guid.NewGuid().ToString("N");
+    private IJSObjectReference? _module;
+
+    [Parameter]
+    public GrowBoxRoot? Data { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _module = await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./Controls/GrowBoxChart/GrowBoxChart.razor.js");
+            await _module.InvokeVoidAsync("createGrowBoxChart", _chartId);
+            await UpdateChart();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync() 
+    {
+        await UpdateChart();
+    }
+
+    private async Task UpdateChart()
+    {
+        if (_module is null || Data is null)
+        {
+            return;
+        }
+
+        await _module.InvokeVoidAsync("updateGrowBoxChart", _chartId, Data);
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("destroyGrowBoxChart", _chartId);
+            await _module.DisposeAsync();
+        }
+    }
+}

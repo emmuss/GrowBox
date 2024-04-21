@@ -1,0 +1,14 @@
+@implements IOverlayBase
+
+@code{
+    [Parameter]
+    public IOverlayService OverlayService { get; set; } = default!;
+
+    [Parameter]
+    public Guid InstanceId { get; set; } = default!;
+
+    public void Succeed()
+        => OverlayService.CloseOverlay(this, new OverlayResult(true));
+    public void Fail()
+        => OverlayService.CloseOverlay(this, new OverlayResult(false));
+}

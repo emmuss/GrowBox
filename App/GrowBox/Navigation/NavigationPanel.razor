@@ -1,0 +1,78 @@
+@inject IServiceProvider ServiceProvider
+@inject INavigationPanelService NavPanelService
+
+<RadzenPanelMenu>
+    @foreach (var navItem in NavigationItems)
+    {
+        <RadzenPanelMenuItem Text="@(navItem.Text)" Path="@(navItem.Route.TrimStart('/'))" Icon="@(navItem.Icon)"  Image="@(navItem.Image)"
+            Click="@(async () => {if(navItem.Items.Count > 0) return;  SelectedNavigationItem = navItem; await SelectedNavigationItemChanged.InvokeAsync(navItem);})">
+            @foreach (var navItem2 in navItem.Items)
+            {
+                <RadzenPanelMenuItem Text="@(navItem2.Text)" Path="@(navItem2.Route.TrimStart('/'))" Icon="@(navItem2.Icon)" Image="@(navItem2.Image)"
+                    Click="@(async () => {SelectedNavigationItem = navItem2; await SelectedNavigationItemChanged.InvokeAsync(navItem2);})"/>
+            }
+        </RadzenPanelMenuItem>
+    }
+</RadzenPanelMenu>
+
+@code {
+
+    [Parameter]
+    public NavigationItem? SelectedNavigationItem { get; set; }
+    [Parameter]
+    public EventCallback<NavigationItem> SelectedNavigationItemChanged { get; set; }
+
+    public IEnumerable<NavigationItem> NavigationItems { get; private set; } = Array.Empty<NavigationItem>();
+    protected override async Task OnInitializedAsync()
+    {
+        var rootNavItems = typeof(NavigationPageAttribute).Assembly
+            .GetTypes()
+            .Where(t => t.GetCustomAttributes(false).Any(attr => attr is NavigationPageAttribute))
+            .Select(t =>
+            {
+                var attribs = t.GetCustomAttributes(false);
+                var nav = attribs.FirstOrDefault(x => x is NavigationPageAttribute) as NavigationPageAttribute
+                    ?? throw new InvalidOperationException();
+                var route = attribs.Where(x => x is RouteAttribute).Cast<RouteAttribute>().OrderBy(x => x.Template.Length).FirstOrDefault()
+                    ?? throw new InvalidOperationException($"Route missing on {t.FullName}.");
+                return new NavigationItem(nav.Text, route.Template, nav.Icon, nav.Sort, nav.SubItemProvider, nav.Image);
+            })
+            .OrderBy(t => t.Sort)
+            .ToList();
+
+        
+        foreach(var item in rootNavItems) 
+            await GenerateItems(item);
+        NavigationItems = rootNavItems;
+        await base.OnInitializedAsync();
+        NavPanelService.SetNavigationPanel(this);
+    }
+
+    public async Task UpdateItemsFor(Type? provider = null)
+    {
+        foreach(var item in NavigationItems)
+        {
+            if (provider == null || item.SubItemProvider == provider)
+                await GenerateItems(item);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async Task GenerateItems(NavigationItem item)
+    {
+        if (item.SubItemProvider == null)
+            return;
+
+        var type = item.SubItemProvider;
+        if (!type.IsAssignableTo(typeof(ISubItemProvider)))
+            throw new InvalidOperationException();
+        
+        var subItemProvider = (ActivatorUtilities.CreateInstance(ServiceProvider, type) as ISubItemProvider)!;
+        item.Items.Clear();
+        item.Items.AddRange(await subItemProvider.GenerateItems(item));
+        foreach (var si in item.Items)
+            await GenerateItems(si);
+        if (subItemProvider is IDisposable disposable) disposable.Dispose();
+    }
+}

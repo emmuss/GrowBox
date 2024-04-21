@@ -1,0 +1,15 @@
+﻿.card + .card {
+    margin-top: 1rem;
+}
+
+.config-row {
+    display:flex;
+    flex-direction: column;
+}
+.validation {
+    margin-left: 0.5rem;
+    margin-top: 0.5rem;
+}
+.config-row + .config-row {
+    margin-top: 1rem;
+}

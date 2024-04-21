@@ -1,0 +1,31 @@
+@using GrowBox.Services
+
+@inject IClipboardService Clipboard
+@inject ILogger<Index> Log
+
+<div style="display: flex; align-items: center; flex-wrap: nowrap; justify-content: flex-end;" @attributes=Attributes>
+    <RadzenTextBox @bind-Value=Text Placeholder=@Placeholder style="flex: 1" ReadOnly=true/>
+    <div style="flex: 0 0 0.5rem;"></div>
+    <RadzenButton style=@ButtonStyle Icon="content_copy" Text="@ButtonText" Size="ButtonSize.Small" Click="@(() => CopyText())"/>
+</div>
+
+@code
+{
+    [Parameter]
+    public string Text { get; set; } = string.Empty;
+    
+    [Parameter]
+    public string ButtonText { get; set; } = string.Empty;
+    [Parameter]
+    public string ButtonStyle { get; set; } = "flex: 0 0 1;";
+    
+    [Parameter]
+    public string? Placeholder { get; set; } = null;
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> Attributes { get; set; } = new ();
+
+    public async void CopyText()
+    {
+        await Clipboard.CopyToClipboard(Text);
+    }
+}

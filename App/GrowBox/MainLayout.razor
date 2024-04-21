@@ -1,0 +1,41 @@
+﻿@using GrowBox.Controls.Overlay
+@using GrowBox.Services
+
+@inject MyJsInterop JsInterop
+
+@inherits LayoutComponentBase
+
+<RadzenComponents/>
+
+<div style="display: flex; justify-content: center;">
+    <RadzenLayout class="rz-shadow-7" style="max-width: 800px; flex: 1;">
+        <RadzenHeader class="layout-header">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+                <RadzenSidebarToggle Click="@(() => _isSidebarExpanded = !_isSidebarExpanded)" />
+                <img width="36" height="36" alt="" src="image/favicon.ico" style="margin-right:0.5rem;">
+                <RadzenLabel Text="@(HeaderLabel)" style="flex: 1 0 0" />
+            </RadzenStack>
+        </RadzenHeader>
+        <RadzenSidebar @bind-Expanded="@_isSidebarExpanded">
+            <NavigationPanel SelectedNavigationItemChanged="@((item) => { _selectedNavigationItem = item; })" />
+        </RadzenSidebar>
+        <RadzenBody>
+            @Body
+        </RadzenBody>
+        <RadzenFooter class="layout-footer">
+            <div style="display: flex; justify-content: end; align-items: center; cursor: pointer;" @onclick="@(() => JsInterop.OpenUrl("https://github.com/emmuss", "_blank"))">
+                <span>Made with</span> 
+                <RadzenIcon Icon="favorite" IconColor="red" /> 
+                <span>by Emmuss</span>
+            </div>
+        </RadzenFooter>
+    </RadzenLayout>
+</div>
+
+<OverlayHost/>
+
+@code {
+    string HeaderLabel => "GrowBox Home" + (_selectedNavigationItem == null ? string.Empty : (" - " + _selectedNavigationItem.Text));
+    NavigationItem? _selectedNavigationItem = null;
+    bool _isSidebarExpanded = true;
+}

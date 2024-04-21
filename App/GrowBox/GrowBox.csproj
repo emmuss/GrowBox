@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Blazor.MinimalApi.Client" Version="8.0.1" />
+    <PackageReference Include="Blazored.LocalStorage" Version="4.4.0" />
+    <PackageReference Include="ByteSize" Version="2.1.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.1" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
+    <PackageReference Include="Radzen.Blazor" Version="4.24.2" />
+    <PackageReference Include="System.Reactive" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="dist\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Remove="dist\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Remove="dist\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="dist\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="dist\web.config" />
+    <_ContentIncludedByDefault Remove="dist\wwwroot\_framework\blazor.boot.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GrowBox.Abstractions\GrowBox.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,3 +1,4 @@
+const char HTML_INDEX[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang="en">
 
@@ -81,12 +82,12 @@
       </div>
     </div>
     <!-- CHART -->
-    <div class="card mb-4">
+    <div id="gbChartCard" class="card mb-4">
       <div class="card-header">
         History
       </div>
       <div class="card-body">
-        <div style="position: relative; width: 100%; height: 180px;">
+        <div style="display: flex; position: relative; width: 100%; height: 180px; justify-content: center;" id="gbChartContainer">
           <canvas id="gbChart"></canvas>
         </div>
       </div>
@@ -113,8 +114,8 @@
     </div>
   </main>
   <script>
-    const urlPrefix = "http://growbox01/"
-    let webStreamUrl = "http://192.168.178.197/";
+    const urlPrefix = ""
+    let webStreamUrl = "";
     let gbChart = undefined;
     let updateTimout = undefined;
     let fanSliderLastInput = undefined;
@@ -133,8 +134,8 @@
       const webStream = $("#webStream");
       webStream.on("click", () => {
         if (webStreamUrl) {
-          window.open(webStreamUrl,'_blank');
           webStream.attr("src", "");
+          window.open(webStreamUrl,'_blank');
         }
       });
       update();
@@ -219,7 +220,6 @@
       if (!lightSliderLastInput || (new Date().getTime() - lightSliderLastInput) > 1000)
       {
         const lightSlider = $("#lightSlider");
-        console.log("update slider val", (data.light - 40));
         lightSlider.val((data.light - 40)*-1);
       }
       updateLightIconAnimation(data.light);
@@ -236,9 +236,7 @@
     };
     updateLightIconAnimation = (light) => {
       const lightIcon = $("#lightIcon");
-      console.log("updateLightIconAnimation", light);
       let lightColor = (255 - (light*0.5)) ;
-      console.log("color", lightColor);
       lightColor = lightColor < 145 ? 0 : lightColor;
       lightIcon.css("color", `rgb(${lightColor}, ${lightColor}, 0)`);
     };
@@ -335,7 +333,6 @@
       let s = (Number.parseFloat(speed)*-1 + 40);
       s = s > 255 ? 255 : s;
       s = s < 0   ? 0   : s;
-      console.log("update light ", s);
       updateLightIconAnimation(s);
       $.post(urlPrefix + "light/set", JSON.stringify({ "light": s }));
     };
@@ -350,3 +347,4 @@
 </body>
 
 </html>
+)=====";
