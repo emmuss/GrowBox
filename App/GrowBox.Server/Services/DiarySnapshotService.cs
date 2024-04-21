@@ -37,27 +37,21 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
                 var snapshotTargetDir = Path.Combine(config.DiarySnapshotOutputPath, compressedGuidForPath);
                 var whoAmIFilePath = Path.Combine(snapshotTargetDir, "growbox.txt");
                 var snapshotFilePath = Path.Combine(snapshotTargetDir, DateTime.Now.ToString("yyyy-MM-ddTHH-mm-ss")+".jpeg");
-                if (!Directory.Exists(snapshotTargetDir))
-                    Directory.CreateDirectory(snapshotTargetDir);
-                
-                await File.WriteAllTextAsync(whoAmIFilePath, $"{growBox.Id}:{growBox.Name}", cancellationToken);
 
-                byte[] snapshotBytes = [];
                 try
                 {
-                    snapshotBytes = await http.GetByteArrayAsync(snapshotUrl, cancellationToken);
+                    if (!Directory.Exists(snapshotTargetDir))
+                        Directory.CreateDirectory(snapshotTargetDir);
+
+                    await File.WriteAllTextAsync(whoAmIFilePath, $"{growBox.Id}:{growBox.Name}", cancellationToken);
+
+                    var snapshotBytes = await http.GetByteArrayAsync(snapshotUrl, cancellationToken);
+                    await File.WriteAllBytesAsync(snapshotFilePath, snapshotBytes, cancellationToken);
                 }
                 catch (Exception e)
                 {
                     logger.LogError(e, $"Error requesting snapshot for {growBox.Name}. (Url: {snapshotUrl})");
                 }
-
-                if (snapshotBytes.Length <= 0)
-                {
-                    continue;
-                }
-                
-                await File.WriteAllBytesAsync(snapshotFilePath, snapshotBytes, cancellationToken);
             }
 
             if (isContextChanged)
