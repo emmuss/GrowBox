@@ -15,8 +15,13 @@
             <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Dark" Click=@(() => Js.InvokeVoidAsync("history.back")) />
         </RadzenStack>
          <RadzenDataList PageSize="1" WrapItems="true" AllowPaging="true" 
-                                    Data="@_diary.Snapshots" TItem="DiarySnapshot">
+                                    Data="@_diary.Snapshots.OrderByDescending(x => x.Created)" TItem="DiarySnapshot">
              <Template Context="snapshot">
+                 <div style="background-color: var(--rz-paginator-background-color); border-bottom: var(--rz-paginator-border); border-radius: 0; display: flex; margin: 0 0 0.5rem;justify-content: center; align-items: center">
+                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center">
+                         <RadzenText Text="@snapshot.Created.ToString("f")" Style="margin-bottom: 0" />
+                     </RadzenStack>
+                 </div>
                  <img src="@snapshot.Url" alt="@snapshot.Created" style="width: 100%; object-fit:cover; border-radius: 8px; margin-bottom: 0.5rem"/>
              </Template>
         </RadzenDataList>

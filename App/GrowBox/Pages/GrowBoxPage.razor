@@ -56,9 +56,8 @@
                      !string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamSnapshotUrl))
                 {
                     <a href="@_appGrowBox.GrowBox.WebCamStreamUrl" target="_blank">
-                        <img id="webCam" src="@_appGrowBox.GrowBox.WebCamSnapshotUrl" style="width: 100%; object-fit:cover; border-radius: 8px;" alt="Web Cam Loading..."/>
+                        <img id="webCam" src="@_appGrowBox.GrowBox.WebCamSnapshotUrl" style="width: 100%; object-fit:cover; border-radius: 8px;" alt="Webcam Image Loading..."/>
                     </a>
-                    <RadzenButton Click=@(async args => { await _appGrowBox.Service.Snapshot(); await Js.WindowOpen(_appGrowBox.GrowBox.WebCamSnapshotUrl); }) Icon="photo_camera" ButtonStyle="ButtonStyle.Primary"/>
                 }
             </RadzenStack>
         </RadzenCard>
@@ -135,7 +134,7 @@
             var sensorReadings = await SensorReadings.Get(new Abstractions.Model.SensorReadingRequest(
                 ["temperature", "pressure", "light", "humidity"],
                 GrowBoxId, DateTime.UtcNow - TimeSpan.FromDays(1), null));
-            await _chart.UpdateChart(sensorReadings);
+            await _chart.UpdateChart(sensorReadings?.OrderBy(x => x.Created).ToArray());
         }
         catch (Exception e)
         {
@@ -147,12 +146,6 @@
 
     async ValueTask IAsyncDisposable.DisposeAsync()
     {
-        // hacky way to disable the stream after page navigation, BLAZOR BUG!
-        if (!string.IsNullOrEmpty(_appGrowBox?.GrowBox.WebCamStreamUrl))
-        {
-            await Js.InvokeVoidAsync("eval", "document.getElementById('webCam').src = 'https://i.imgur.com/c24qDz2_d.jpeg?maxwidth=520&shape=thumb&fidelity=high'");
-        }
-
         if (_appGrowBox is not null)
             await _appGrowBox.Service.Stop();
 

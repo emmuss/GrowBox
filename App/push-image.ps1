@@ -1,0 +1,1 @@
+docker build . --platform linux/arm/v7 -t emmuss/growbox:latest --push

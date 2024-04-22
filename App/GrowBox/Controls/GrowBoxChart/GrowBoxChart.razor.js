@@ -8,37 +8,39 @@ export const createGrowBoxChart = (elementId) => {
         datasets: [{
           label: "Temperature",
           lineTension: 0.3,
-          backgroundColor: "rgba(17,214,0,0.2)",
-          borderWidth: 3,
+          backgroundColor: "rgba(17,214,0,0.8)",
+          borderWidth: 2,
           borderColor: "rgba(17,214,0,0.8)",
-          pointRadius: 3,
+          pointRadius: 0,
           pointBackgroundColor: "rgba(17,214,0,1)",
-          pointHoverRadius: 3,
+          pointHoverRadius: 1,
           pointHoverBackgroundColor: "rgba(17,214,0,1)",
           pointHitRadius: 50,
           yAxisID: "y",
         },{
           label: "Humidity",
           lineTension: 0.3,
-          backgroundColor: "rgba(2,117,216,0.2)",
-          borderWidth: 3,
+          backgroundColor: "rgba(2,117,216,0.8)",
+          borderWidth: 2,
           borderColor: "rgba(2,117,216,0.8)",
-          pointRadius: 3,
+          pointRadius: 0,
           pointBackgroundColor: "rgba(2,117,216,1)",
-          pointHoverRadius: 3,
+          pointHoverRadius: 1,
           pointHoverBackgroundColor: "rgba(2,117,216,1)",
           pointHitRadius: 50,
           yAxisID: "y1",
         },{
           label: "Light",
-          type: 'bar',
+          //barThickness: 2,
+          borderWidth: 0,
+          pointRadius: 0,  
           backgroundColor: "rgba(255,229,0,0.4)",
-          borderWidth: 3,
-          borderColor: "rgba(255,229,0,0.8)",
           yAxisID: "y1",
+          fill: true,  
         }],
       },
       options: {
+        responsive: true,
         scales: {
           x: {
             type: "time",
@@ -70,15 +72,17 @@ export const createGrowBoxChart = (elementId) => {
                 },
             },
           },
-        },
-        legend: {
-          display: false
-        },
+        }, 
         plugins: {
           tooltip: {
             mode: 'index',
             intersect: false
           },
+          legend: {
+            labels: {
+              usePointStyle: true,
+            },
+          }
         },
       }
     });
@@ -95,9 +99,11 @@ export const updateGrowBoxChart = (elementId, data) => {
     const humData = [];
     const lightData = [];
     if (data) {
+        let lastLight = undefined;
         data.forEach(reading => {
             const mstamp = moment(reading.created);
             const x = mstamp.toDate();
+            const a = moment(mstamp).subtract(1, 'seconds');
             const t = reading.type;
             const v = reading.value;
             if (t === "temperature") {
@@ -105,7 +111,13 @@ export const updateGrowBoxChart = (elementId, data) => {
             } else if (t === "light") {
                 let v2 = 255 - v;
                 v2 = (v2 / 255) * 100;
+                if (lastLight === 0 && v2 !== 0)
+                {
+                    lightData.push({x: a.toDate(), y: 0});
+                    console.log("pushing");
+                }
                 lightData.push({x, y: v2});
+                lastLight = v2;
             } else if (t === "humidity") {
                 humData.push({ x, y: v.toFixed(2) });
             }
