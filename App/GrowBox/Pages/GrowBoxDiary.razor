@@ -1,0 +1,45 @@
+﻿@using GrowBox.State
+@using Blazor.MinimalApi.Client
+@using GrowBox.Abstractions.Model
+
+@page "/growbox/{GrowBoxId:guid}/diary"
+
+@inject IJSRuntime Js
+@inject NavigationManager NavigationManager
+@inject MinimalHttpClient<DiaryRequest, Diary> DiaryService
+
+@if (_diary != null) 
+{
+    <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+            <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Dark" Click=@(() => Js.InvokeVoidAsync("history.back")) />
+        </RadzenStack>
+         <RadzenDataList PageSize="1" WrapItems="true" AllowPaging="true" 
+                                    Data="@_diary.Snapshots" TItem="DiarySnapshot">
+             <Template Context="snapshot">
+                 <img src="@snapshot.Url" alt="@snapshot.Created" style="width: 100%; object-fit:cover; border-radius: 8px; margin-bottom: 0.5rem"/>
+             </Template>
+        </RadzenDataList>
+    </RadzenStack>    
+}
+
+
+@code
+{
+    private Diary? _diary;
+    
+    [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (GrowBoxId == Guid.Empty)
+        {
+            await base.OnParametersSetAsync();
+            return;
+        }
+
+        _diary = await DiaryService.Get(new DiaryRequest(GrowBoxId));
+        
+        await base.OnParametersSetAsync();
+    }
+}

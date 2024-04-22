@@ -15,8 +15,17 @@
 @if (_appGrowBox != null && _root != null) 
 {
     <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
-            <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/settings")) />
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            @if (!string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamSnapshotUrl))
+            {
+                <RadzenButton Icon="photo_library" ButtonStyle="ButtonStyle.Secondary" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/diary"))/>
+            }
+            else
+            {
+                <div>@* retain position *@</div>
+            }
+            
+            <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/settings"))/>
         </RadzenStack>
         <RadzenCard Variant="Variant.Filled">
             <RadzenStack Gap="0.5rem">
