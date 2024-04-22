@@ -23,13 +23,29 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
             foreach (var growBox in await context.GrowBoxes.ToArrayAsync(cancellationToken))
             {
                 if (cancellationToken.IsCancellationRequested) break;
-
                 var snapshotUrl = growBox.WebCamSnapshotUrl;
-                // TODO: light schedule, enable disable.
+                // TODO: enable disable.
                 if (string.IsNullOrEmpty(snapshotUrl))
                     continue;
                 
-                var compressedGuidForPath =Convert.ToBase64String(growBox.Id.ToByteArray())
+                int? growBoxLight = null;
+                try
+                {
+                    var api = new EspApiService(http, growBox.GrowBoxUrl);
+                    var root = await api.Get(cancellationToken);
+                    growBoxLight = root?.Light;
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, $"Error getting light state for {growBox.Name}. (Url: {growBox.GrowBoxUrl})");
+                }
+
+                if (growBoxLight == 255)
+                {
+                    continue;
+                }
+                
+                var compressedGuidForPath =  Convert.ToBase64String(growBox.Id.ToByteArray())
                     .Trim('=')
                     .Replace('+', '-')
                     .Replace("/", "_");
