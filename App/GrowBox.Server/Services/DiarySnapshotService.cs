@@ -7,6 +7,8 @@ namespace GrowBox.Server.Services;
 
 public class DiarySnapshotService(ServerConfiguration config, IServiceProvider services, ILogger<DiarySnapshotService> logger) : BackgroundService
 {
+    public const string DIARY_SNAPSHOT_FILE_MARKER = "gbd-";
+    public const string DIARY_SNAPSHOT_FILE_DATETIME_MASK = "yyyy-MM-ddTHH-mm-ss";
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Started.");
@@ -45,14 +47,12 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
                     continue;
                 }
                 
-                var compressedGuidForPath =  Convert.ToBase64String(growBox.Id.ToByteArray())
-                    .Trim('=')
-                    .Replace('+', '-')
-                    .Replace("/", "_");
+                var compressedGuidForPath =  growBox.Id.ToBase64AsFileName();
                 logger.LogInformation($"Compressed Guid for path: {compressedGuidForPath}");
                 var snapshotTargetDir = Path.Combine(config.DiarySnapshotOutputPath, compressedGuidForPath);
                 var whoAmIFilePath = Path.Combine(snapshotTargetDir, "growbox.txt");
-                var snapshotFilePath = Path.Combine(snapshotTargetDir, DateTime.Now.ToString("yyyy-MM-ddTHH-mm-ss")+".jpeg");
+                var snapshotFilePath = Path.Combine(snapshotTargetDir, 
+                    DIARY_SNAPSHOT_FILE_MARKER + DateTime.Now.ToString(DIARY_SNAPSHOT_FILE_DATETIME_MASK)+".jpeg");
 
                 try
                 {

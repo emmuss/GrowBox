@@ -3,6 +3,17 @@
 namespace GrowBox.Server;
 
 
+public static class GuidExtensions
+{
+    public static string ToBase64AsFileName(this Guid guid)
+    {
+        return Convert.ToBase64String(guid.ToByteArray())
+            .Trim('=')
+            .Replace('+', '-')
+            .Replace("/", "_");
+    }
+}
+
 public static class IHostExtension
 {
     public static async Task UseGrowBoxContext(this IHost app)
