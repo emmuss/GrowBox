@@ -15,7 +15,7 @@
             <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Dark" Click=@(() => Js.InvokeVoidAsync("history.back")) />
         </RadzenStack>
         @* TODO: https://github.com/welisonmenezes/wm-blazor-slick-carousel/blob/master/WMBlazorSlickCarousel/WMBSC/BlazorSlickCarousel.razor*@
-        <RadzenDataList PageSize="1" WrapItems="true" AllowPaging="true" PagerPosition="PagerPosition.Top"
+        <RadzenDataList @ref=_dataList PageSize="1" WrapItems="true" AllowPaging="true" PagerPosition="PagerPosition.Top"
                         Data="@_snapshots.OrderByDescending(x => x.Created)" TItem="DiarySnapshot">
             <Template Context="snapshot">
                 <img src="@snapshot.Url" alt="@snapshot.Created" style="width: 100%; height: 45vh; object-fit:cover; border-radius: 8px; margin-top: 0.5rem"/>
@@ -48,6 +48,7 @@
     private Diary? _diary;
     private IEnumerable<DiarySnapshot> _snapshots = [];
     private string _activeFilterName = "";
+    private RadzenDataList<DiarySnapshot>? _dataList;
     
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
 
@@ -57,6 +58,8 @@
     {
         _activeFilterName = filter.FilterName;
         _snapshots = filter.Snapshots;
+        if (_dataList is not null)
+            _dataList.CurrentPage = 0;
     }
 
     protected override async Task OnParametersSetAsync()
