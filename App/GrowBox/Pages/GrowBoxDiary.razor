@@ -14,17 +14,31 @@
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
             <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Dark" Click=@(() => Js.InvokeVoidAsync("history.back")) />
         </RadzenStack>
-         <RadzenDataList PageSize="1" WrapItems="true" AllowPaging="true" 
-                                    Data="@_diary.Snapshots.OrderByDescending(x => x.Created)" TItem="DiarySnapshot">
-             <Template Context="snapshot">
-                 <div style="background-color: var(--rz-paginator-background-color); border-bottom: var(--rz-paginator-border); border-radius: 0; display: flex; margin: 0 0 0.5rem;justify-content: center; align-items: center">
-                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center">
-                         <RadzenText Text="@snapshot.Created.ToString("f")" Style="margin-bottom: 0" />
-                     </RadzenStack>
-                 </div>
-                 <img src="@snapshot.Url" alt="@snapshot.Created" style="width: 100%; object-fit:cover; border-radius: 8px; margin-bottom: 0.5rem"/>
-             </Template>
+        @* TODO: https://github.com/welisonmenezes/wm-blazor-slick-carousel/blob/master/WMBlazorSlickCarousel/WMBSC/BlazorSlickCarousel.razor*@
+        <RadzenDataList PageSize="1" WrapItems="true" AllowPaging="true" PagerPosition="PagerPosition.Top"
+                        Data="@_snapshots.OrderByDescending(x => x.Created)" TItem="DiarySnapshot">
+            <Template Context="snapshot">
+                <img src="@snapshot.Url" alt="@snapshot.Created" style="width: 100%; height: 45vh; object-fit:cover; border-radius: 8px; margin-top: 0.5rem"/>
+                <div style="background-color: var(--rz-paginator-background-color); border-top: var(--rz-paginator-border); border-radius: 0; display: flex; margin: 0.5rem 0 0 0;justify-content: center; align-items: center">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Style="width: 100%">
+                        <RadzenText Text="@snapshot.Created.ToString("f")" Style="margin-bottom: 0"/>
+                        <a href="@snapshot.Url" target="_blank">
+                            <RadzenIcon Icon="attach_file"/>
+                        </a>
+                    </RadzenStack>
+                </div>
+            </Template>
         </RadzenDataList>
+        @if (_snapShotFilters.Count > 0)
+        {
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+                @foreach (var filter in _snapShotFilters)
+                {
+                    var btnStyle = filter.FilterName == _activeFilterName ? ButtonStyle.Primary : ButtonStyle.Dark;
+                    <RadzenButton Text="@filter.FilterName" ButtonStyle="@btnStyle" Click=@(() => SetFilter(filter))/>
+                }
+            </RadzenStack>
+        }
     </RadzenStack>    
 }
 
@@ -32,8 +46,18 @@
 @code
 {
     private Diary? _diary;
+    private IEnumerable<DiarySnapshot> _snapshots = [];
+    private string _activeFilterName = "";
     
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
+
+    private readonly List<(IEnumerable<DiarySnapshot> Snapshots, string FilterName)> _snapShotFilters = [];
+
+    private void SetFilter((IEnumerable<DiarySnapshot> Snapshots, string FilterName) filter)
+    {
+        _activeFilterName = filter.FilterName;
+        _snapshots = filter.Snapshots;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -44,6 +68,25 @@
         }
 
         _diary = await DiaryService.Get(new DiaryRequest(GrowBoxId));
+        if (_diary == null)
+        {
+            await base.OnParametersSetAsync();
+            return;
+        }
+
+        _snapshots = _diary.Snapshots;
+        _activeFilterName = "All";
+        _snapShotFilters.Clear();
+        _snapShotFilters.Add((_diary.Snapshots, "All"));
+        foreach (var snapshotGroup in _diary.Snapshots
+                     .OrderByDescending(x => x.Created)
+                     .GroupBy(x => x.Created.Date))
+        {
+            var filterName = snapshotGroup.Key.ToString("d");
+            if (snapshotGroup.Key > DateTime.Now - TimeSpan.FromDays(6))
+                filterName = snapshotGroup.Key.ToString("dddd");
+            _snapShotFilters.Add(((snapshotGroup, filterName)));
+        }
         
         await base.OnParametersSetAsync();
     }
