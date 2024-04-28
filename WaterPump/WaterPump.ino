@@ -213,6 +213,7 @@ void pumpWater(int duration) {
   context.lastPumpAction.begin = now;
   context.lastPumpAction.duration = duration;
   context.timestamp = now;
+  contextSaveChanges();
 
   digitalWrite(pPumpRelais, HIGH);
   delay(duration);

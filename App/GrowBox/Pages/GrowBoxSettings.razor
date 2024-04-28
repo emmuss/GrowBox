@@ -1,6 +1,8 @@
 ﻿@using GrowBox.Services
 @using GrowBox.State
 @using GrowBox.Abstractions.Model.EspApi
+@using GrowBox.Controls.Overlay
+@using GrowBox.Controls.Overlays
 
 @page "/growbox/{GrowBoxId:guid}/settings"
 
@@ -9,6 +11,7 @@
 @inject App App
 @inject IJSRuntime Js
 @inject NavigationManager NavigationManager
+@inject IOverlayService OverlayService
 
 @if (_root != null && _appGrowBox != null) 
 {
@@ -56,7 +59,7 @@
         </RadzenCard>
         
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
-            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Click=@(async () => { await App.DeleteGrowBox(_appGrowBox.GrowBox); NavigationManager.NavigateTo("/"); } ) />
+            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Click=@(async () => { await DeleteGrowBox(); } ) />
         </RadzenStack>
     </RadzenStack>    
 }
@@ -77,6 +80,17 @@
 
     IEnumerable<int> _riseAndSet = new int[] { 21600, 21600 + 64800 };
     IEnumerable<int> RiseAndSet { get => _riseAndSet; set => SetRiseAndSet(value); }
+
+    private async Task DeleteGrowBox()
+    {
+        if (_appGrowBox is null) return;
+        
+        if (!await OverlayService.ConfirmDelete("GrowBox"))
+            return;
+        
+        await App.DeleteGrowBox(_appGrowBox.GrowBox); 
+        NavigationManager.NavigateTo("/");
+    }
 
     private void SetRiseAndSet(IEnumerable<int> values)
     {

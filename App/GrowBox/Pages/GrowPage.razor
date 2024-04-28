@@ -1,7 +1,5 @@
 ﻿@using GrowBox.Abstractions.Model
-@using GrowBox.Controls
 @using Blazor.MinimalApi.Client
-@using System.Runtime.Serialization
 @using GrowBox.Controls.Overlay
 @using GrowBox.Controls.Overlays
 
@@ -9,40 +7,56 @@
 
 @inject MinimalHttpClient<Grow> GrowRead
 @inject MinimalHttpClient<Grow, Grow> GrowWrite
+@inject MinimalHttpClient<GrowDiaryNote, GrowDiaryNote> GrowDiaryNoteWrite
 @inject NavigationManager NavigationManager
 @inject ILogger<GrowBoxCreate> Logger
 @inject NotificationService NotificationService
 @inject IOverlayService OverlayService
+@inject IJSRuntime Js
 
 @if (_grow is not null)
 {
     <RadzenStack Gap="0.5rem" Orientation="Orientation.Vertical" JustifyContent="JustifyContent.Stretch">
-        <div class="accordion">
-            <div class="accordion-label" @onclick="@(() => _accordionExpanded = !_accordionExpanded)">
-                <RadzenText TextStyle="TextStyle.Subtitle1" Text="@_grow.Name" Style="margin: 0"/>
-                <RadzenIcon Icon="note_add"></RadzenIcon>
-            </div>
-            <div class="accordion-content" data-accordion-expanded="@_accordionExpanded">
-                <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem" Style="margin-top: 0.5rem">
-                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center"
-                                 JustifyContent="JustifyContent.SpaceBetween">
-                        <RadzenButton Icon="save" Click="@(async () => await AddNote())"/>
-                        <RadzenDatePicker @bind-Value=@_newNote.Created ShowTime="true" ShowSeconds="false" HoursStep="1" MinutesStep="10" SecondsStep="1" DateFormat="dd.MM.yyyy HH:mm" Name="DatePickerWithTime" />
+        <RadzenCard Variant="Variant.Filled">
+            <div class="accordion">
+                <div class="accordion-label" @onclick="@(() => _accordionExpanded = !_accordionExpanded)">
+                    <RadzenStack JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem" Style="width: 100%">
+                        <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
+                            <RadzenText TextStyle="TextStyle.Subtitle1" style="margin-bottom: 0;">@_grow.Name</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_grow.Created.ToString("M")</RadzenText>
+                        </RadzenStack>
+                        <RadzenStack JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/grow/{_grow.Id}/edit"))/>
+                            <RadzenButton Icon="note_add" ButtonStyle="ButtonStyle.Dark" @onclick=@(() => { _accordionExpanded = !_accordionExpanded; })/>
+                        </RadzenStack>
                     </RadzenStack>
-                    <RadzenHtmlEditor @bind-Value=@_newNote.Text style="height: 400px;" UploadUrl="upload/image" Execute="@OnExecute">
-                        <RadzenHtmlEditorUndo/>
-                        <RadzenHtmlEditorRedo/>
-                        <RadzenHtmlEditorSeparator/>
-                        <RadzenHtmlEditorBold/>
-                        <RadzenHtmlEditorItalic/>
-                        <RadzenHtmlEditorUnderline/>
-                        <RadzenHtmlEditorStrikeThrough/>
-                        <RadzenHtmlEditorSeparator/>
-                        <RadzenHtmlEditorCustomTool CommandName="InsertSnapshot" Icon="add_a_photo" Title="Insert snapshot" />
-                    </RadzenHtmlEditor>
-                </RadzenStack>
+                </div>
+                <div class="accordion-content" data-accordion-expanded="@_accordionExpanded">
+                    <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem" Style="margin-top: 0.5rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center"
+                                     JustifyContent="JustifyContent.SpaceBetween">
+                            <RadzenButton Icon="save" Click="@(async () => await CreateOrUpdateNote())"/>
+                            <RadzenDatePicker @bind-Value=@_editNote.Created ShowTime="true" ShowSeconds="false" HoursStep="1" MinutesStep="10" SecondsStep="1" DateFormat="dd.MM.yyyy HH:mm" Name="DatePickerWithTime"/>
+                        </RadzenStack>
+                        <RadzenHtmlEditor @bind-Value=@_editNote.Text style="height: 400px;" UploadUrl="upload/image" Execute="@OnExecute">
+                            <RadzenHtmlEditorUndo/>
+                            <RadzenHtmlEditorRedo/>
+                            <RadzenHtmlEditorSeparator/>
+                            <RadzenHtmlEditorBold/>
+                            <RadzenHtmlEditorItalic/>
+                            <RadzenHtmlEditorUnderline/>
+                            <RadzenHtmlEditorStrikeThrough/>
+                            <RadzenHtmlEditorSeparator/>
+                            <RadzenHtmlEditorCustomTool CommandName="InsertSnapshot" Icon="add_a_photo" Title="Insert snapshot"/>
+                        </RadzenHtmlEditor>
+                        <RadzenStack JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem" Style="width: 100%">
+                            <div> &nbsp; </div>
+                            <RadzenButton Icon="delete_forever" ButtonStyle="ButtonStyle.Danger" Click="@(async () => await DeleteEditNote())"/>
+                        </RadzenStack>
+                    </RadzenStack>
+                </div>
             </div>
-        </div>
+        </RadzenCard>
         <RadzenTimeline AlignItems="AlignItems.Center" LinePosition="LinePosition.Alternate" style="max-width: 600px; margin: 0 auto;">
             <Items>
                 @foreach (var note in _grow.GrowDiaryNotes.OrderByDescending(x => x.Created))
@@ -51,7 +65,14 @@
                     if (note.Created > DateTime.Now.Date - TimeSpan.FromDays(6))
                         noteTime = note.Created.ToString("dddd") + " - " + note.Created.ToString("t");
                     <RadzenTimelineItem @key="note.Id" Size="PointSize.Medium" PointStyle="PointStyle.Info">
-                        <LabelContent><RadzenBadge BadgeStyle="BadgeStyle.Info" IsPill="true" Text="@noteTime"/></LabelContent>
+                        <LabelContent>
+                            <RadzenBadge 
+                                BadgeStyle="BadgeStyle.Info" 
+                                IsPill="true" 
+                                Text="@noteTime" 
+                                Style="cursor:pointer;"
+                                @onclick="@(async () => await EditNote(note))"/>
+                        </LabelContent>
                         <ChildContent><div style="text-wrap: normal; word-wrap: break-word;">@((MarkupString)note.Text)</div></ChildContent>
                     </RadzenTimelineItem>
                 }
@@ -63,36 +84,73 @@
 @code
 {
     private Grow? _grow;
-    private GrowDiaryNote _newNote = default!;
+    private GrowDiaryNote _editNote = default!;
     private bool _accordionExpanded = false;
     
     [Parameter] 
     public Guid GrowId { get; set; }
 
-    private async Task AddNote()
+    private async Task EditNote(GrowDiaryNote note)
     {
-        if (_grow == null) return;
+        _editNote = note;
+        _accordionExpanded = true;
+        await Js.InvokeVoidAsync("eval", "document.getElementById('app-body').scrollTop = 0;");
+    }
+    
+    private async Task DeleteEditNote()
+    {
+        if (_grow == null || _editNote.Id == Guid.Empty) return;
+
+        if (!await OverlayService.ConfirmDelete("Grow Diary Note"))
+            return;
+        
         try
         {
-            Console.WriteLine("Created: {0}", _newNote.Created);
-            _grow.GrowDiaryNotes.Add(_newNote);
-            var result = await GrowWrite.Update(_grow);
-            if (result != null)
-                _grow = result;
+            _grow.GrowDiaryNotes.Remove(_grow.GrowDiaryNotes.First(x => x.Id == _editNote.Id));
+            await GrowDiaryNoteWrite.Delete(_editNote);
+            _editNote = new GrowDiaryNote { Created = DateTime.Now, GrowId = GrowId };
+            _accordionExpanded = false;
         }
         catch (Exception e)
         {
             var message = new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = "Note Creation",
+                Summary = "Note Deletion",
                 Detail = "Failed.",
                 Duration = 2000
             };
             NotificationService.Notify(message);
-            Logger.LogError(e, "Failed to AddNote.");
+            Logger.LogError(e, "Failed to DeleteNote.");
         }
-        _newNote = new() { Created = DateTime.Now, GrowId = GrowId };
+    }
+
+    private async Task CreateOrUpdateNote()
+    {
+        if (_grow == null) return;
+        try
+        {
+            if (_editNote.Id == Guid.Empty)
+                _grow.GrowDiaryNotes.Add(_editNote);
+            var result = await GrowWrite.Update(_grow);
+            if (result != null)
+            {
+                _grow = result;
+                _editNote = new GrowDiaryNote { Created = DateTime.Now, GrowId = GrowId };
+            }
+        }
+        catch (Exception e)
+        {
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Note Create/Edit",
+                Detail = "Failed.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+            Logger.LogError(e, "Failed to submit note.");
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -103,7 +161,7 @@
 
         try
         {
-            _newNote = new() { Created = DateTime.Now, GrowId = GrowId };
+            _editNote = new() { Created = DateTime.Now, GrowId = GrowId };
             _grow = await GrowRead.Get(query: new QueryParameters()
                 .With("id", GrowId)
                 .With("withNavigationProperties", true));

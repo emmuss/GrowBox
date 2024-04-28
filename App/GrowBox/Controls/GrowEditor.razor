@@ -4,7 +4,7 @@
 <RadzenStack>
     <RadzenCard class="card">
         <RadzenText TextStyle="TextStyle.Subtitle1"> Grow </RadzenText>
-        Create a new Grow to document it.
+        To document your grow give it a name and a begin date.
         <div class="config-row">
             <RadzenFormField Text="Name*">
                 <RadzenTextBox style="display: block" Name="Name" @bind-Value="@Grow.Name" class="w-100" Placeholder="GorillaGreen" />
@@ -13,6 +13,9 @@
                 <RadzenRequiredValidator Component="Name" Text="A Grow name is required." />
                 <RadzenLengthValidator Min="0" Max="128" Text="Name too long." Component="Name" />
             </div>
+            <RadzenFormField Text="Grow from">
+                <RadzenDatePicker @bind-Value="@Grow.Created" ShowTime="true" ShowSeconds="false" HoursStep="1" MinutesStep="10" SecondsStep="1" DateFormat="dd.MM.yyyy HH:mm" Name="DatePickerWithTime"/>
+            </RadzenFormField>
         </div>
     </RadzenCard>
     

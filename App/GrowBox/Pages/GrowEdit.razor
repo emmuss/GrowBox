@@ -44,7 +44,7 @@
         try
         {
             var result = await GrowWrite.Update(grow) ?? throw new InvalidDataContractException();
-            NavigationManager.NavigateTo($"/growbox/{result.GrowBoxId}/grow/{result.Id}");
+            NavigationManager.NavigateTo($"/grow/{result.Id}");
         }
         catch (Exception e)
         {

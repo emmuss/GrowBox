@@ -15,16 +15,23 @@
 @if (_grows != null) 
 {
     <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
-        <RadzenButton Icon="add_circle" Text="Create a Grow Diary" ButtonStyle="ButtonStyle.Primary" Click=@(() => NavigationManager.NavigateTo($"/growbox/{GrowBoxId}/grow/create")) />
         @if (_grows.Length > 0)
         {
+            <RadzenButton Icon="add_circle" Text="Create a Grow Diary" ButtonStyle="ButtonStyle.Primary" Click=@(() => NavigationManager.NavigateTo($"/growbox/{GrowBoxId}/grow/create")) />
             @foreach (var grow in _grows)
             {
                 <RadzenCard @key="grow.Id" Variant="Variant.Filled" Style="cursor: pointer"
                             @onclick="@(() => NavigationManager.NavigateTo($"/grow/{grow.Id}"))">
                     <RadzenStack Gap="0.5rem">
-                        <RadzenStack JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem">
-                            <RadzenText TextStyle="TextStyle.Subtitle1" style="margin-bottom: 0;">@grow.Name</RadzenText>
+                        <RadzenStack JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem">
+                            <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
+                                <RadzenText TextStyle="TextStyle.Subtitle1" style="margin-bottom: 0;">@grow.Name</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@grow.Created.ToString("M")</RadzenText>
+                            </RadzenStack>
+                            <RadzenStack JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/grow/{grow.Id}/edit"))/>
+                                <RadzenButton Icon="note_add" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/grow/{grow.Id}"))/>
+                            </RadzenStack>
                         </RadzenStack>
                     </RadzenStack>
                 </RadzenCard>

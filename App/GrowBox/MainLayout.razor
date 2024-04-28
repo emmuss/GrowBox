@@ -19,7 +19,7 @@
         <RadzenSidebar @bind-Expanded="@_isSidebarExpanded">
             <NavigationPanel SelectedNavigationItemChanged="@((item) => { _selectedNavigationItem = item; })" />
         </RadzenSidebar>
-        <RadzenBody>
+        <RadzenBody id="app-body" >
             @Body
         </RadzenBody>
         <RadzenFooter class="layout-footer">
