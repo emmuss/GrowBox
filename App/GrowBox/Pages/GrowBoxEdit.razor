@@ -18,7 +18,7 @@
 
 @if (_growBox is not null)
 {
-    <GrowBoxEditor Submit="@OnSubmit" GrowBox="_growBox"/>
+    <GrowBoxEditor Submit="@(x => OnSubmit(x))" GrowBox="_growBox"/>
 }
 
 @code

@@ -9,7 +9,7 @@
 @inject ILogger<GrowBoxCreate> Logger
 @inject NotificationService NotificationService
 
-<GrowBoxEditor Submit="@OnSubmit" GrowBox="_growBox" />
+<GrowBoxEditor Submit="@(x => OnSubmit(x))" GrowBox="_growBox" />
 
 @code
 {

@@ -1,4 +1,5 @@
 ﻿using GrowBox.Abstractions;
+using Microsoft.EntityFrameworkCore;
 
 namespace GrowBox.Server;
 
@@ -22,14 +23,17 @@ public static class IHostExtension
         var dbContext = scope.ServiceProvider.GetRequiredService<GrowBoxContext>();
 
         //await dbContext.Database.EnsureDeletedAsync();
-        await dbContext.Database.EnsureCreatedAsync();
 
-        if (!dbContext.GrowBoxes.Any())
-        {
-            dbContext.GrowBoxes.Add(new Abstractions.Model.GrowBox() { Icon = "yard", GrowBoxUrl = "http://192.168.178.183/", WebCamStreamUrl = "http://192.168.178.200:8081/0/stream", WebCamSnapshotUrl = "http://192.168.178.200:8080/0/", Name = "TEST GROWBOX"});
-            await dbContext.SaveChangesAsync();
-        }
+        await dbContext.Database.EnsureCreatedAsync();
         
+        await dbContext.Database.MigrateAsync();
+
+        // if (!dbContext.GrowBoxes.Any())
+        // {
+        //     dbContext.GrowBoxes.Add(new Abstractions.Model.GrowBox() { Icon = "yard", GrowBoxUrl = "http://192.168.178.183/", WebCamStreamUrl = "http://192.168.178.200:8081/0/stream", WebCamSnapshotUrl = "http://192.168.178.200:8080/0/", Name = "TEST GROWBOX"});
+        //     await dbContext.SaveChangesAsync();
+        // }
+
         // if (!dbContext.SensorReadings.Any())
         // {
         //     var growBox = dbContext.GrowBoxes.First();

@@ -1,0 +1,31 @@
+﻿@using GrowBox.Abstractions.Model
+
+<RadzenTemplateForm TItem="Grow" Data="@Grow" Submit="@Submit">
+<RadzenStack>
+    <RadzenCard class="card">
+        <RadzenText TextStyle="TextStyle.Subtitle1"> Grow </RadzenText>
+        Create a new Grow to document it.
+        <div class="config-row">
+            <RadzenFormField Text="Name*">
+                <RadzenTextBox style="display: block" Name="Name" @bind-Value="@Grow.Name" class="w-100" Placeholder="GorillaGreen" />
+            </RadzenFormField>
+            <div class="validation">
+                <RadzenRequiredValidator Component="Name" Text="A Grow name is required." />
+                <RadzenLengthValidator Min="0" Max="128" Text="Name too long." Component="Name" />
+            </div>
+        </div>
+    </RadzenCard>
+    
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem" Class="rz-mt-8 rz-mb-4">
+        <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Success" Icon="save" Text="Save" />
+    </RadzenStack>
+    
+</RadzenStack>
+</RadzenTemplateForm>
+
+@code
+{
+    [Parameter] [EditorRequired] public EventCallback<Grow> Submit { get; set; }
+
+    [Parameter] [EditorRequired] public Grow Grow { get; set; } = default!;
+}

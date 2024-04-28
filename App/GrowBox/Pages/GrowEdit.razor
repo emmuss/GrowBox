@@ -1,0 +1,62 @@
+﻿@using GrowBox.Abstractions.Model
+@using GrowBox.Controls
+@using Blazor.MinimalApi.Client
+@using System.Runtime.Serialization
+
+@page "/grow/{GrowId:guid}/edit"
+
+@inject MinimalHttpClient<Grow, Grow> GrowWrite
+@inject MinimalHttpClient<Grow> GrowRead
+@inject NavigationManager NavigationManager
+@inject ILogger<GrowBoxCreate> Logger
+@inject NotificationService NotificationService
+
+@if (_grow is not null)
+{
+    <GrowEditor Submit="@(x => OnSubmit(x))" Grow="_grow"/>
+}
+
+@code
+{
+    private Grow? _grow;
+    
+    [Parameter] 
+    public Guid GrowId { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        if (GrowId == Guid.Empty)
+            return;
+
+        try
+        {
+            _grow = await GrowRead.Get(query: new QueryParameters().With("id", GrowId));
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Failed to request Grow.");
+        }
+    }
+
+    private async Task OnSubmit(Grow grow)
+    {
+        try
+        {
+            var result = await GrowWrite.Update(grow) ?? throw new InvalidDataContractException();
+            NavigationManager.NavigateTo($"/growbox/{result.GrowBoxId}/grow/{result.Id}");
+        }
+        catch (Exception e)
+        {
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Grow Edit",
+                Detail = "Failed.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+            Logger.LogError(e, "Failed to create growbox.");
+        }
+    }
+}

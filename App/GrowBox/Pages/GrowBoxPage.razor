@@ -20,10 +20,7 @@
             {
                 <RadzenButton Icon="photo_library" ButtonStyle="ButtonStyle.Secondary" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/diary"))/>
             }
-            else
-            {
-                <div>@* retain position *@</div>
-            }
+            <RadzenButton Icon="park" ButtonStyle="ButtonStyle.Secondary" Click="@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/grows"))" />
             
             <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/settings"))/>
         </RadzenStack>

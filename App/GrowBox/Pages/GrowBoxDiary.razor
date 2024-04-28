@@ -31,7 +31,7 @@
         </RadzenDataList>
         @if (_snapShotFilters.Count > 0)
         {
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceEvenly" Wrap="FlexWrap.Wrap">
                 @foreach (var filter in _snapShotFilters)
                 {
                     var btnStyle = filter.FilterName == _activeFilterName ? ButtonStyle.Primary : ButtonStyle.Dark;
@@ -86,9 +86,9 @@
                      .GroupBy(x => x.Created.Date))
         {
             var filterName = snapshotGroup.Key.ToString("d");
-            if (snapshotGroup.Key > DateTime.Now - TimeSpan.FromDays(6))
+            if (snapshotGroup.Key > DateTime.Now - TimeSpan.FromDays(7))
                 filterName = snapshotGroup.Key.ToString("dddd");
-            _snapShotFilters.Add(((snapshotGroup, filterName)));
+            _snapShotFilters.Add((snapshotGroup, filterName));
         }
         
         await base.OnParametersSetAsync();

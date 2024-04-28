@@ -1,0 +1,79 @@
+﻿@using GrowBox.Services
+@using GrowBox.State
+@using GrowBox.Abstractions.Model
+@using Blazor.MinimalApi.Client
+
+@page "/growbox/{GrowBoxId:guid}/grows"
+
+@implements IDisposable
+
+@inject App App
+@inject NavigationManager NavigationManager
+@inject ILogger<GrowsPage> Logger
+@inject MinimalHttpClient<GrowRequest, Grow[]> GrowRead
+
+@if (_grows != null) 
+{
+    <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
+        <RadzenButton Icon="add_circle" Text="Create a Grow Diary" ButtonStyle="ButtonStyle.Primary" Click=@(() => NavigationManager.NavigateTo($"/growbox/{GrowBoxId}/grow/create")) />
+        @if (_grows.Length > 0)
+        {
+            @foreach (var grow in _grows)
+            {
+                <RadzenCard @key="grow.Id" Variant="Variant.Filled" Style="cursor: pointer"
+                            @onclick="@(() => NavigationManager.NavigateTo($"/grow/{grow.Id}"))">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenStack JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem">
+                            <RadzenText TextStyle="TextStyle.Subtitle1" style="margin-bottom: 0;">@grow.Name</RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenCard>
+            }
+        }
+        else
+        {
+            <RadzenCard Variant="Variant.Filled">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenStack JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem">
+                        <RadzenText Text="There are no Grows, create one to take notes about your grow."/>
+                        <RadzenButton Icon="add_circle" ButtonStyle="ButtonStyle.Primary" Click=@(() => NavigationManager.NavigateTo($"/growbox/{GrowBoxId}/grow/create"))/>
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        }
+    </RadzenStack>    
+}
+
+
+@code
+{
+    private Grow[]? _grows;
+    [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (GrowBoxId == Guid.Empty)
+        {
+            return;
+        }
+        
+        try
+        {
+            _grows = await GrowRead.Get(new GrowRequest(GrowBoxId));
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Unable to request grows.");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+    }
+
+    void IDisposable.Dispose()
+    {
+        
+    }
+}

@@ -1,0 +1,139 @@
+﻿@using GrowBox.Abstractions.Model
+@using GrowBox.Controls
+@using Blazor.MinimalApi.Client
+@using System.Runtime.Serialization
+@using GrowBox.Controls.Overlay
+@using GrowBox.Controls.Overlays
+
+@page "/grow/{GrowId:guid}"
+
+@inject MinimalHttpClient<Grow> GrowRead
+@inject MinimalHttpClient<Grow, Grow> GrowWrite
+@inject NavigationManager NavigationManager
+@inject ILogger<GrowBoxCreate> Logger
+@inject NotificationService NotificationService
+@inject IOverlayService OverlayService
+
+@if (_grow is not null)
+{
+    <RadzenStack Gap="0.5rem" Orientation="Orientation.Vertical" JustifyContent="JustifyContent.Stretch">
+        <div class="accordion">
+            <div class="accordion-label" @onclick="@(() => _accordionExpanded = !_accordionExpanded)">
+                <RadzenText TextStyle="TextStyle.Subtitle1" Text="@_grow.Name" Style="margin: 0"/>
+                <RadzenIcon Icon="note_add"></RadzenIcon>
+            </div>
+            <div class="accordion-content" data-accordion-expanded="@_accordionExpanded">
+                <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem" Style="margin-top: 0.5rem">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center"
+                                 JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenButton Icon="save" Click="@(async () => await AddNote())"/>
+                        <RadzenDatePicker @bind-Value=@_newNote.Created ShowTime="true" ShowSeconds="false" HoursStep="1" MinutesStep="10" SecondsStep="1" DateFormat="dd.MM.yyyy HH:mm" Name="DatePickerWithTime" />
+                    </RadzenStack>
+                    <RadzenHtmlEditor @bind-Value=@_newNote.Text style="height: 400px;" UploadUrl="upload/image" Execute="@OnExecute">
+                        <RadzenHtmlEditorUndo/>
+                        <RadzenHtmlEditorRedo/>
+                        <RadzenHtmlEditorSeparator/>
+                        <RadzenHtmlEditorBold/>
+                        <RadzenHtmlEditorItalic/>
+                        <RadzenHtmlEditorUnderline/>
+                        <RadzenHtmlEditorStrikeThrough/>
+                        <RadzenHtmlEditorSeparator/>
+                        <RadzenHtmlEditorCustomTool CommandName="InsertSnapshot" Icon="add_a_photo" Title="Insert snapshot" />
+                    </RadzenHtmlEditor>
+                </RadzenStack>
+            </div>
+        </div>
+        <RadzenTimeline AlignItems="AlignItems.Center" LinePosition="LinePosition.Alternate" style="max-width: 600px; margin: 0 auto;">
+            <Items>
+                @foreach (var note in _grow.GrowDiaryNotes.OrderByDescending(x => x.Created))
+                {
+                    var noteTime = note.Created.ToString("d");
+                    if (note.Created > DateTime.Now.Date - TimeSpan.FromDays(6))
+                        noteTime = note.Created.ToString("dddd") + " - " + note.Created.ToString("t");
+                    <RadzenTimelineItem @key="note.Id" Size="PointSize.Medium" PointStyle="PointStyle.Info">
+                        <LabelContent><RadzenBadge BadgeStyle="BadgeStyle.Info" IsPill="true" Text="@noteTime"/></LabelContent>
+                        <ChildContent><div style="text-wrap: normal; word-wrap: break-word;">@((MarkupString)note.Text)</div></ChildContent>
+                    </RadzenTimelineItem>
+                }
+            </Items>
+        </RadzenTimeline>
+    </RadzenStack>
+}
+
+@code
+{
+    private Grow? _grow;
+    private GrowDiaryNote _newNote = default!;
+    private bool _accordionExpanded = false;
+    
+    [Parameter] 
+    public Guid GrowId { get; set; }
+
+    private async Task AddNote()
+    {
+        if (_grow == null) return;
+        try
+        {
+            Console.WriteLine("Created: {0}", _newNote.Created);
+            _grow.GrowDiaryNotes.Add(_newNote);
+            var result = await GrowWrite.Update(_grow);
+            if (result != null)
+                _grow = result;
+        }
+        catch (Exception e)
+        {
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Note Creation",
+                Detail = "Failed.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+            Logger.LogError(e, "Failed to AddNote.");
+        }
+        _newNote = new() { Created = DateTime.Now, GrowId = GrowId };
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        if (GrowId == Guid.Empty)
+            return;
+
+        try
+        {
+            _newNote = new() { Created = DateTime.Now, GrowId = GrowId };
+            _grow = await GrowRead.Get(query: new QueryParameters()
+                .With("id", GrowId)
+                .With("withNavigationProperties", true));
+
+            if (_grow?.GrowDiaryNotes.Count <= 0)
+                _accordionExpanded = true;
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Failed to request Grow.");
+        }
+    }
+    
+    async Task OnExecute(HtmlEditorExecuteEventArgs args)
+    {
+        if (args.CommandName == "InsertSnapshot")
+        {
+            if (_grow == null) return;
+            var snapshotSelection = await OverlayService
+                .ShowOverlay<SnapshotSelectionOverlay, SnapshotSelection>(
+                    new SnapshotSelection(_grow.GrowBoxId));
+            
+            if (snapshotSelection.Success)
+                await InsertSnapshot(args.Editor, snapshotSelection.Data?.DiarySnapshot?.Url ?? "");
+        }
+    }
+
+    async Task InsertSnapshot(RadzenHtmlEditor editor, string snapshot)
+    {
+        await editor.ExecuteCommandAsync(HtmlEditorCommands.InsertHtml, 
+            $"<img id=\"webCam\" src=\"{snapshot}\" style=\"width: 100%; object-fit:cover; max-height:40vh; border-radius: 8px;\" alt=\"snapshot\"/>");
+    }
+}

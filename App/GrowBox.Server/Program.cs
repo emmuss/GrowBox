@@ -1,6 +1,7 @@
 using GrowBox.Abstractions;
 using GrowBox.Server;
 using GrowBox.Server.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 var serverConfiguration = new ServerConfiguration();
@@ -20,7 +21,12 @@ services.AddEndpointDefinitions(typeof(Program));
 services.AddHostedService<RetentionService>();
 services.AddHostedService<DiarySnapshotService>();
 
-services.AddScoped<GrowBoxContext>();
+services.AddDbContext<GrowBoxContext>(options =>
+{
+    options.UseNpgsql(
+        serverConfiguration.PgSqlConnectionString, 
+        b =>  b.MigrationsAssembly("GrowBox.Server"));
+});
 
 var app = builder.Build();
 await app.UseGrowBoxContext();

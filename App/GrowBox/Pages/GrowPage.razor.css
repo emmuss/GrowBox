@@ -1,0 +1,17 @@
+﻿
+.accordion {
+    margin: 1rem;
+    overflow: hidden;
+}
+.accordion-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.accordion-content {
+    max-height: 0;
+    transition: all 0.35s ease-in-out;
+}
+.accordion-content[data-accordion-expanded] {
+    max-height: unset;
+}

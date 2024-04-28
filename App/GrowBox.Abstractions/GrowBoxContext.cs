@@ -1,7 +1,6 @@
 ﻿using GrowBox.Abstractions.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Microsoft.Extensions.Logging;
 
 namespace GrowBox.Abstractions;
 
@@ -14,23 +13,19 @@ public class DateTimeToDateTimeUtcN()
         c => c == null ? null : DateTime.SpecifyKind(c.Value, DateTimeKind.Utc),
         c => c);
 
-public class GrowBoxContext : DbContext
+public class GrowBoxContext(DbContextOptions<GrowBoxContext> options) : DbContext(options: options)
 {
-    private readonly ServerConfiguration _config;
-
     public DbSet<Model.GrowBox> GrowBoxes { get; set; } = default!;
-    public DbSet<Model.SensorReading> SensorReadings { get; set; } = default!;
+    public DbSet<SensorReading> SensorReadings { get; set; } = default!;
+
+    public DbSet<Grow> Grows { get; set; } = default!;
+    public DbSet<GrowDiaryNote> GrowDiaryNotes { get; set; } = default!;
+    public DbSet<GrowDiaryNoteMedia> GrowDiaryNoteMedias { get; set; } = default!;
 
     public bool IsCreationMarkingEnabled { get; set; } = true;
 
-    public GrowBoxContext(ServerConfiguration config, ILogger<GrowBoxContext> logger)
-    {
-        _config = config;
-    }
-
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) 
     {   
-        optionsBuilder.UseNpgsql(_config.PgSqlConnectionString);
         optionsBuilder.EnableSensitiveDataLogging();
     }
 
@@ -50,6 +45,21 @@ public class GrowBoxContext : DbContext
             .WithMany()
             .HasForeignKey(x => x.GrowBoxId);
 
+        mb.Entity<Grow>()
+            .HasOne<Model.GrowBox>()
+            .WithMany()
+            .HasForeignKey(x => x.GrowBoxId);
+        
+        mb.Entity<GrowDiaryNote>()
+            .HasOne<Grow>()
+            .WithMany(x => x.GrowDiaryNotes)
+            .HasForeignKey(x => x.GrowId);
+        
+        mb.Entity<GrowDiaryNoteMedia>()
+            .HasOne<GrowDiaryNote>()
+            .WithMany(x => x.GrowDiaryNoteMedias)
+            .HasForeignKey(x => x.GrowDiaryNoteId);
+
         base.OnModelCreating(mb);
     }
 
@@ -63,7 +73,8 @@ public class GrowBoxContext : DbContext
 
             foreach (var entity in markCreatedEntities)
             {
-                entity.Created = DateTime.UtcNow;
+                if (entity.Created == DateTime.MinValue)
+                    entity.Created = DateTime.UtcNow;
             }
         }
 

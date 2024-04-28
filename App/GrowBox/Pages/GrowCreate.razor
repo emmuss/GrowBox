@@ -1,0 +1,46 @@
+﻿@using GrowBox.Abstractions.Model
+@using GrowBox.Controls
+@using Blazor.MinimalApi.Client
+@using System.Runtime.Serialization
+
+@page "/growbox/{GrowBoxId:guid}/grow/create"
+
+@inject MinimalHttpClient<Grow, Grow> GrowWrite
+@inject NavigationManager NavigationManager
+@inject ILogger<GrowBoxCreate> Logger
+@inject NotificationService NotificationService
+
+<GrowEditor Submit="@(x => OnSubmit(x))" Grow="_grow" />
+
+@code
+{
+    private readonly Grow _grow = new()
+    {
+        Name = "My Grow",
+    };
+    
+    [Parameter] 
+    public Guid GrowBoxId { get; set; }
+    
+    private async Task OnSubmit(Grow grow)
+    {
+        try
+        {
+            grow.GrowBoxId = GrowBoxId;
+            var result = await GrowWrite.Create(grow) ?? throw new InvalidDataContractException();
+            NavigationManager.NavigateTo($"/grow/{result.Id}");
+        }
+        catch (Exception e)
+        {
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Grow Creation",
+                Detail = "Failed.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+            Logger.LogError(e, "Failed to create growbox.");
+        }
+    }
+}
