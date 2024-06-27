@@ -82,7 +82,7 @@
                      .GroupBy(x => x.Created.Date))
         {
             var filterName = snapshotGroup.Key.ToString("d");
-            if (snapshotGroup.Key > DateTime.Now.Date - TimeSpan.FromDays(6))
+            if (snapshotGroup.Key > DateTime.Now.Date - TimeSpan.FromDays(7))
                 filterName = snapshotGroup.Key.ToString("dddd");
             _snapShotFilters.Add((snapshotGroup, filterName));
         }

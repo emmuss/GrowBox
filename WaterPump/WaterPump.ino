@@ -36,24 +36,34 @@ const char* pass = SECRET_PASS;    // your network password
 ESP8266WebServer server(80);
 // Pins
   const int pBuildinLed = LED_BUILTIN;
-  const int pPumpRelais = 4;
-  
-struct PumpAction 
+
+const int pPump1 = D5;
+const int pPump2 = D6;
+const int pPump3 = D7;
+const int pPump4 = D0;
+
+
+struct Pump
 {
+  int id;
+  time_t lastRun;
+  int lastRunDuration;
+  int autoPumpBegin;
   int duration;
-  time_t begin;
+  int relaisPin;
+  bool isActive;
 };
 
 // Context
+const int pumpCount = 4;
 struct Context
 {
   time_t timestamp;
-  PumpAction lastPumpAction;
-  int autoPumpBegin;
-  int autoPumpDuration;
+  Pump pumps[pumpCount];
 };
+
 const int CONTEXT_SIZE = sizeof(Context);
-const char * CONTEXT_MARKER = "WTRP";
+const char * CONTEXT_MARKER = "WRP2";
 const int CONTEXT_MARKER_SIZE = 4;
 Context context;
 
@@ -73,7 +83,34 @@ void contextInit() {
   if (memcmp(CONTEXT_MARKER, EEPROM.getConstDataPtr(), CONTEXT_MARKER_SIZE) != 0) {
     Serial.println("No viable context found in EEPROM, initializing default.");
     // INITIALIZE CONTEXT DEFAULT VALUES HERE.
-    context.lastPumpAction.begin = 0;
+    context.pumps[0].id = 0;
+    context.pumps[0].autoPumpBegin = -1;
+    context.pumps[0].duration = 0;
+    context.pumps[0].lastRun = 0;
+    context.pumps[0].lastRunDuration = 0;
+    context.pumps[0].relaisPin = pPump1;
+    context.pumps[0].isActive = false;
+    context.pumps[1].id = 1;
+    context.pumps[1].autoPumpBegin = -1;
+    context.pumps[1].duration = 0;
+    context.pumps[1].lastRun = 0;
+    context.pumps[1].lastRunDuration = 0;
+    context.pumps[1].relaisPin = pPump2;
+    context.pumps[1].isActive = false;
+    context.pumps[2].id = 2;
+    context.pumps[2].autoPumpBegin = -1;
+    context.pumps[2].duration = 0;
+    context.pumps[2].lastRun = 0;
+    context.pumps[2].lastRunDuration = 0;
+    context.pumps[2].relaisPin = pPump3;
+    context.pumps[2].isActive = false;
+    context.pumps[3].id = 3;
+    context.pumps[3].autoPumpBegin = -1;
+    context.pumps[3].duration = 0;
+    context.pumps[3].lastRun = 0;
+    context.pumps[3].lastRunDuration = 0;
+    context.pumps[3].relaisPin = pPump4;
+    context.pumps[3].isActive = false;
     context.timestamp = 0;
     return;
   }
@@ -87,17 +124,32 @@ void contextSaveChanges() {
   EEPROM.commit();
 }
 
+String pumpToJson(Pump pump)
+{
+  String result = "{";
+    result += "\"id\" : " + String(pump.id);
+    result += ", \"autoPumpBegin\" : " + String(pump.autoPumpBegin);
+    result += ", \"duration\" :" + String(pump.duration);
+    result += ", \"lastRun\" :" + String(pump.lastRun);
+    result += ", \"lastRunDuration\" :" + String(pump.lastRunDuration);
+    result += ", \"relaisPin\" :" + String(pump.relaisPin);
+  result += "}";
+  return result;
+}
+
 // SERVER I/O ###########################################
 void serverSendContext() {
     String result = "{";
       result += "\"me\" : \"" + String(hostname) + "\"";
       result += ", \"timestamp\" :" + String(context.timestamp);
-      result += ", \"autoPumpBegin\" :" + String(context.autoPumpBegin);
-      result += ", \"autoPumpDuration\" :" + String(context.autoPumpDuration);
-      result += ", lastPumpAction :{";
-        result += "\"begin\" : " + String(context.lastPumpAction.begin);
-        result += ",\"duration\" : " + String(context.lastPumpAction.duration);
-      result += "}";
+      result += ", \"pumps\" :[";
+      for (int i = 0; i < pumpCount; i++)
+      {
+        result += i == 0 ? "" : ",";
+        result += pumpToJson(context.pumps[i]);
+      }
+      
+      result += "]";
     result += "}";
     
     server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
@@ -126,43 +178,102 @@ void serverSendInvalidRequest() {
 void handleGet() {
   serverSendContext();
 }
-
-void handlePump() {
-  Serial.println("Handling Pump Request"); 
+void handlePumpTest() {
+  Serial.println("handlePumpTest"); 
   JSONVar jsonInput;
   if (!serverParseJson(&jsonInput))
     return;
-   
+
+  if (!jsonInput.hasOwnProperty("id")) {
+    serverSendInvalidRequest();
+    return;
+  }
+
+  int pumpId = (int)jsonInput["id"];
+  if (pumpId < 0 || pumpId >= pumpCount) {
+    serverSendInvalidRequest();
+    return;
+  }
+
+  Pump* pump = &context.pumps[pumpId];
+  bool scheduleChanged = false;   
   if (jsonInput.hasOwnProperty("duration")) { 
-    int duration = (int)jsonInput["duration"];
-    Serial.print("pumping ");
-    Serial.println(duration);
-    pumpWater(duration);
-    contextSaveChanges();
+    pump->duration = (int)jsonInput["duration"];
+    Serial.print("duration set to ");
+    Serial.println(pump->duration);
+    scheduleChanged = true;
+  }
+
+  if (scheduleChanged) {
+    pumpDoStart(pump);
+    delay(pump->duration * 1000);
+    pumpDoStop(pump);
     serverSendContext();
-    return; 
+    return;
   }
   serverSendInvalidRequest();
 }
 
-void handleScheduleSet() {
+void handlePumpTestAll() {
+  Serial.println("handlePumpTestAll"); 
+  JSONVar jsonInput;
+  if (!serverParseJson(&jsonInput))
+    return;
+
+  int pumpDuration = 0;
+  if (jsonInput.hasOwnProperty("duration")) { 
+    pumpDuration = (int)jsonInput["duration"];
+  }
+
+  if (pumpDuration > 0) {
+                    {
+      Pump* pump = &context.pumps[i];
+      pump->duration = pumpDuration;
+      pumpDoStart(pump);
+    }
+    delay(pumpDuration * 1000);
+    for (int i = 0; i < pumpCount; i++)
+    {
+      Pump* pump = &context.pumps[i];
+      pump->duration = pumpDuration;
+      pumpDoStart(pump);
+    }
+    serverSendContext();
+    return;
+  }
+  serverSendInvalidRequest();
+}
+
+void handlePumpSet() {
   Serial.println("Handling Schedule Set Request"); 
   JSONVar jsonInput;
   if (!serverParseJson(&jsonInput))
     return;
 
+  if (!jsonInput.hasOwnProperty("id")) {
+    serverSendInvalidRequest();
+    return;
+  }
+
+  int pumpId = (int)jsonInput["id"];
+  if (pumpId < 0 || pumpId >= pumpCount) {
+    serverSendInvalidRequest();
+    return;
+  }
+
+  Pump* pump = &context.pumps[pumpId];
   bool scheduleChanged = false;
   if (jsonInput.hasOwnProperty("autoPumpBegin")) { 
-    context.autoPumpBegin = (int)jsonInput["autoPumpBegin"];
+    pump->autoPumpBegin = (int)jsonInput["autoPumpBegin"];
     Serial.print("autoPumpBegin set to ");
-    Serial.println(context.autoPumpBegin);
+    Serial.println(pump->autoPumpBegin);
     scheduleChanged = true;
   }
    
-  if (jsonInput.hasOwnProperty("autoPumpDuration")) { 
-    context.autoPumpDuration = (int32_t)jsonInput["autoPumpDuration"];
-    Serial.print("autoPumpDuration set to ");
-    Serial.println(context.autoPumpDuration);
+  if (jsonInput.hasOwnProperty("duration")) { 
+    pump->duration = (int)jsonInput["duration"];
+    Serial.print("duration set to ");
+    Serial.println(pump->duration);
     scheduleChanged = true;
   }
 
@@ -201,23 +312,77 @@ void configureRoutes() {
   server.enableCORS(true);
   
   server.on("/get", handleGet);
-  server.on("/schedule/set", HTTP_POST, handleScheduleSet);
+  server.on("/pump/set", HTTP_POST, handlePumpSet);
+  server.on("/pump/test", HTTP_POST, handlePumpTest);
+  server.on("/pump/test/all", HTTP_POST, handlePumpTestAll);
 
   server.onNotFound(handleNotFound);
 }
 
 // SETUP / LOOP #########################################
 
-void pumpWater(int duration) {
+void pumpDoStart(Pump* pump) {
   time_t now = time(nullptr);
-  context.lastPumpAction.begin = now;
-  context.lastPumpAction.duration = duration;
-  context.timestamp = now;
-  contextSaveChanges();
+  pump->isActive = true;
+  pump->lastRun = now;
+  pump->lastRunDuration = pump->duration;
+  pumpWrite(pump);
+}
 
-  digitalWrite(pPumpRelais, HIGH);
-  delay(duration);
-  digitalWrite(pPumpRelais, LOW);
+void pumpWrite(Pump* pump) {
+  if (pump->isActive) {
+    digitalWrite(pump->relaisPin, LOW);
+  } else {
+    digitalWrite(pump->relaisPin, HIGH);
+  }
+}
+
+void pumpDoStop(Pump* pump) {
+  pump->isActive = false;
+  pumpWrite(pump);
+}
+
+void pumpSchedule(Pump* pump) {
+  Serial.println("PUMP SCHEDULE ####################");
+  Serial.printf("Pump Id: %d", pump->id); Serial.println();
+  if (pump->autoPumpBegin < 0) {
+
+    Serial.println("PUMP DISABLED. END.");
+    return;
+  }
+  DateTime lastPumpBegin = DateTime(now.year(), now.month(), now.day()-1, 0, 0, 0) + pump->autoPumpBegin;
+  DateTime lastPumpStop = lastPumpBegin + pump->duration;
+  DateTime nowPumpBegin = DateTime(now.year(), now.month(), now.day(), 0, 0, 0) + pump->autoPumpBegin;
+  DateTime nowPumpStop = nowPumpBegin + pump->duration;
+  char buff[20];
+  Serial.printf("NOW: %s", now.tostr(buff)); Serial.println();
+  Serial.printf("Last Pump Begin: %s", lastPumpBegin.tostr(buff)); Serial.println();
+  Serial.printf("Last Pump Stop: %s", lastPumpStop.tostr(buff)); Serial.println();
+  DateTime pumpBegin, pumpStop;
+  if(lastPumpStop > now) {
+    pumpBegin = lastPumpBegin;
+    pumpStop = lastPumpStop;
+  } else {
+    pumpBegin = nowPumpBegin;
+    pumpStop = nowPumpStop;
+  }
+  Serial.printf("Picked Pump Begin: %s", pumpBegin.tostr(buff)); Serial.println();
+  Serial.printf("Picked Pump Stop: %s", pumpStop.tostr(buff)); Serial.println();
+  bool targetPumpState = now > pumpBegin && now <= pumpStop;
+  Serial.printf("targetPumpState = %s", targetPumpState ? "ON" : "OFF"); Serial.println();
+  Serial.printf("currentPumpState = %s", pump->isActive ? "ON" : "OFF"); Serial.println();
+
+  if (targetPumpState != pump->isActive) {
+    pump->isActive = targetPumpState;
+    Serial.printf("Pump State switched to %s", pump->isActive ? "ON" : "OFF"); Serial.println();
+    if (targetPumpState) {
+      pumpDoStart(pump);
+    } else {
+      pumpDoStop(pump);
+    }
+    contextSaveChanges();
+  }
+  Serial.println("#################################");
 }
 
 void initNtp() {
@@ -288,7 +453,13 @@ void setup() {
   contextInit();
 
   // then init context driven pins.
-  pinMode(pPumpRelais, OUTPUT);
+
+  for (int i = 0; i < pumpCount; i++)
+  {
+
+    pinMode(context.pumps[i].relaisPin, OUTPUT);
+    pumpWrite(&context.pumps[i]);
+  }
   
   // connect wifi
   Serial.println("Connecting");
@@ -346,12 +517,13 @@ void loop() {
   // handle client requests
   server.handleClient();
 
-  if (epochChanged && epoch % 2 == 0) {
-    // updateContext();
-    // if (context.sunScheduleEnabled) {
-    //   sunSchedule();
-    // }
+  if (epochChanged) {
+    context.timestamp = epoch;
+    for (int i = 0; i < pumpCount; i++) {
+      pumpSchedule(&context.pumps[i]);
+    }
   }
+  
 
   if (epochChanged && epoch % 60 == 0) {
     initNtp();

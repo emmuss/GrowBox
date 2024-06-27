@@ -33,7 +33,7 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
                 int? growBoxLight = null;
                 try
                 {
-                    var api = new EspApiService(http, growBox.GrowBoxUrl);
+                    var api = new GrowboxEspApiService(http, growBox.GrowBoxUrl);
                     var root = await api.Get(cancellationToken);
                     growBoxLight = root?.Light;
                 }

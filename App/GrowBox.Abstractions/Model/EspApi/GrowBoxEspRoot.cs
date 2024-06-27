@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace GrowBox.Abstractions.Model.EspApi
 {
-    public record EspRoot(
+    public record GrowBoxEspRoot(
         [property: JsonPropertyName("me")] string Me,
         [property: JsonPropertyName("fanSpeed")] int FanSpeed,
         [property: JsonPropertyName("light")] int Light,

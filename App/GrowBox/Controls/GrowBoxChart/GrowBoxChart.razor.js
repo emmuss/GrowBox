@@ -114,7 +114,6 @@ export const updateGrowBoxChart = (elementId, data) => {
                 if (lastLight === 0 && v2 !== 0)
                 {
                     lightData.push({x: a.toDate(), y: 0});
-                    console.log("pushing");
                 }
                 lightData.push({x, y: v2});
                 lastLight = v2;

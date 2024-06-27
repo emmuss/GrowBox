@@ -29,8 +29,8 @@ public class RetentionService(ServerConfiguration config, IServiceProvider servi
             foreach (var growBox in await context.GrowBoxes.ToArrayAsync(cancellationToken))
             {
                 if (cancellationToken.IsCancellationRequested) break;
-                var api = new EspApiService(http, growBox.GrowBoxUrl);
-                EspRoot? root = null;
+                var api = new GrowboxEspApiService(http, growBox.GrowBoxUrl);
+                GrowBoxEspRoot? root = null;
                 
                 for (int i = 1; i <= 5; i++)
                 {

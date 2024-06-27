@@ -62,7 +62,7 @@
                 @foreach (var note in _grow.GrowDiaryNotes.OrderByDescending(x => x.Created))
                 {
                     var noteTime = note.Created.ToString("d");
-                    if (note.Created > DateTime.Now.Date - TimeSpan.FromDays(6))
+                    if (note.Created > DateTime.Now.Date - TimeSpan.FromDays(7))
                         noteTime = note.Created.ToString("dddd") + " - " + note.Created.ToString("t");
                     <RadzenTimelineItem @key="note.Id" Size="PointSize.Medium" PointStyle="PointStyle.Info">
                         <LabelContent>

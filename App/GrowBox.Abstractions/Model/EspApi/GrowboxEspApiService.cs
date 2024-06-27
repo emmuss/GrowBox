@@ -2,27 +2,27 @@
 
 namespace GrowBox.Abstractions.Model.EspApi;
 
-public sealed class EspApiService(HttpClient http, string growBoxUrl)
+public sealed class GrowboxEspApiService(HttpClient http, string growBoxUrl)
 {
-    public Task<EspRoot?> Get(CancellationToken cancellationToken = default)
+    public Task<GrowBoxEspRoot?> Get(CancellationToken cancellationToken = default)
     {
         var url = Path.Combine(growBoxUrl, "get");
-        return http.GetFromJsonAsync<EspRoot>(url, cancellationToken: cancellationToken);
+        return http.GetFromJsonAsync<GrowBoxEspRoot>(url, cancellationToken: cancellationToken);
     }
 
-    public async Task<EspRoot?> FanSet(int speed, CancellationToken cancellationToken = default)
+    public async Task<GrowBoxEspRoot?> FanSet(int speed, CancellationToken cancellationToken = default)
     {
         var url = Path.Combine(growBoxUrl, "fan/set");
         var resp = await http.PostAsJsonAsync(url, new { fanSpeed = speed }, cancellationToken: cancellationToken);
-        return await resp.Content.ReadFromJsonAsync<EspRoot>(cancellationToken: cancellationToken);
+        return await resp.Content.ReadFromJsonAsync<GrowBoxEspRoot>(cancellationToken: cancellationToken);
     }
-    public async Task<EspRoot?> LightSet(int light, CancellationToken cancellationToken = default)
+    public async Task<GrowBoxEspRoot?> LightSet(int light, CancellationToken cancellationToken = default)
     {
         var url = Path.Combine(growBoxUrl, "light/set");
         var resp = await http.PostAsJsonAsync(url, new { light=light }, cancellationToken: cancellationToken);
-        return await resp.Content.ReadFromJsonAsync<EspRoot>(cancellationToken: cancellationToken);
+        return await resp.Content.ReadFromJsonAsync<GrowBoxEspRoot>(cancellationToken: cancellationToken);
     }
-    public async Task<EspRoot?> LightScheduleSet(LightScheduleReq request, CancellationToken cancellationToken = default)
+    public async Task<GrowBoxEspRoot?> LightScheduleSet(LightScheduleReq request, CancellationToken cancellationToken = default)
     {
         var url = Path.Combine(growBoxUrl, "light/schedule/set");
         var resp = await http.PostAsJsonAsync(url, new {
@@ -32,6 +32,6 @@ public sealed class EspApiService(HttpClient http, string growBoxUrl)
             sunriseSetDuration=480,
             sunTargetLight = request.SunTargetLight
         }, cancellationToken: cancellationToken);
-        return await resp.Content.ReadFromJsonAsync<EspRoot>(cancellationToken: cancellationToken);
+        return await resp.Content.ReadFromJsonAsync<GrowBoxEspRoot>(cancellationToken: cancellationToken);
     }
 }

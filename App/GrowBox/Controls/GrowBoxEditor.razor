@@ -81,7 +81,7 @@
     
     private async Task TestConnection()
     {
-        EspApiService service = new(Http, GrowBox.GrowBoxUrl);
+        GrowboxEspApiService service = new(Http, GrowBox.GrowBoxUrl);
         var message = new NotificationMessage
         {
             Severity = NotificationSeverity.Success,

@@ -13,7 +13,7 @@
 @inject NavigationManager NavigationManager
 @inject IOverlayService OverlayService
 
-@if (_root != null && _appGrowBox != null) 
+@if (_growBoxRoot != null && _appGrowBox != null) 
 {
     <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
@@ -58,6 +58,22 @@
             </RadzenStack>
         </RadzenCard>
         
+        <RadzenCard Variant="Variant.Filled">
+            <RadzenStack Gap="1rem">
+                <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Pumps</RadzenText>
+                </div>
+                <div>
+                    <RadzenLabel Text="Enable Sun Schedule" Component="_pumpsEnabled" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
+                </div>
+                @foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
+                {
+                    <RadzenText @key="pump.Id" TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Pump 1</RadzenText>
+                    <RadzenSlider @key="pump.Id" Value=@pump.Duration TValue="int" style="width: 100%;" Step="10" Min="0" Max="1500" ValueChanged="(val) => UpdatePump(pump, val)" />
+                }
+            </RadzenStack>
+        </RadzenCard>
+        
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
             <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Click=@(async () => { await DeleteGrowBox(); } ) />
         </RadzenStack>
@@ -68,7 +84,8 @@
 @code
 {
     private AppGrowBox? _appGrowBox;
-    private EspRoot? _root;
+    private GrowBoxEspRoot? _growBoxRoot;
+    private WaterPumpsEspRoot? _waterPumpsRoot;
     private readonly List<IDisposable> _subscriptions = [];
     
 
@@ -103,7 +120,7 @@
 
     private int _fanSpeed = 0;
     private int _light = 0;
-    
+
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
 
     protected override void OnParametersSet()
@@ -122,14 +139,19 @@
                 return;
             _subscriptions.Add(
                 _appGrowBox.Service.GrowBoxRoot.Subscribe(root => {
-                    _root = root;
-                    _fanSpeed = 255 - _root?.FanSpeed ?? 0;
-                    var light = (_root?.LightSchedule?.SunScheduleEnabled ?? false) ? _root.LightSchedule.SunTargetLight : (_root?.Light ?? 255);
+                    _growBoxRoot = root;
+                    _fanSpeed = 255 - _growBoxRoot?.FanSpeed ?? 0;
+                    var light = (_growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false) ? _growBoxRoot.LightSchedule.SunTargetLight : (_growBoxRoot?.Light ?? 255);
                     _light = ((light) - 40)*-1;
-                    var rise = _root?.LightSchedule?.Sunrise ?? 21600;
-                    var set = rise + (_root?.LightSchedule?.SunDuration ?? 64800);
+                    var rise = _growBoxRoot?.LightSchedule?.Sunrise ?? 21600;
+                    var set = rise + (_growBoxRoot?.LightSchedule?.SunDuration ?? 64800);
                     RiseAndSet = [rise, set];
-                    _sunScheduleEnabled = _root?.LightSchedule?.SunScheduleEnabled ?? false;
+                    _sunScheduleEnabled = _growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false;
+                    StateHasChanged();
+                }));
+            _subscriptions.Add(
+                _appGrowBox.Service.WaterPumpsRoot.Subscribe(root => {
+                    _waterPumpsRoot = root;
                     StateHasChanged();
                 }));
             _appGrowBox.Service.UpdateAsync();
@@ -153,5 +175,10 @@
     public void Dispose()
     {
         _subscriptions.ForEach(x => x.Dispose());
+    }
+
+    private async Task UpdatePump(WaterPump pump, int val)
+    {
+        _appGrowBox?.Service.UpdatePump(pump with { Duration = val});
     }
 }

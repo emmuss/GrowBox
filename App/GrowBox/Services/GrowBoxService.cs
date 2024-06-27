@@ -15,32 +15,51 @@ public sealed class GrowBoxService : IAsyncDisposable
     private readonly HttpClient _http;
     private readonly ILogger<GrowBoxService> _logger;
     private readonly Abstractions.Model.GrowBox _growBox;
-    private readonly Subject<EspRoot?> _growBoxRootSub = new();
-    public IObservable<EspRoot?> GrowBoxRoot => _growBoxRootSub.AsObservable();
+    private readonly Subject<GrowBoxEspRoot?> _growBoxRootSub = new();
+    private readonly Subject<WaterPumpsEspRoot?> _waterPumpsRootSub = new();
+    public IObservable<GrowBoxEspRoot?> GrowBoxRoot => _growBoxRootSub.AsObservable();
+    public IObservable<WaterPumpsEspRoot?> WaterPumpsRoot => _waterPumpsRootSub.AsObservable();
 
     private Task? _updateTask;
     private CancellationTokenSource? _cancellationTokenSource;
 
     private readonly List<IDisposable> _disposables = new();
     
+    private readonly Subject<WaterPump> _updateWaterPumpSub = new();
     private readonly Subject<int> _updateFanSpeedSub = new();
     private readonly Subject<int> _updateLightSub = new();
     private readonly Subject<LightScheduleReq> _updateSunScheduleSub = new();
-    private readonly EspApiService _espApi;
+    private readonly GrowboxEspApiService _espGrowBoxApi;
+    private readonly WaterpumpsEspApiService _espWaterPumpsApi;
 
 
     public GrowBoxService(HttpClient http, ILogger<GrowBoxService> logger, Abstractions.Model.GrowBox growBox)
     {
-        _espApi = new EspApiService(http, growBox.GrowBoxUrl);
+        _espGrowBoxApi = new GrowboxEspApiService(http, growBox.GrowBoxUrl);
+        // TODO: The url must be configurable!!
+        _espWaterPumpsApi = new WaterpumpsEspApiService(http, "http://192.168.178.194/");
         _http = http;
         _logger = logger;
         _growBox = growBox;
 
+        
+        _disposables.Add(_updateWaterPumpSub.Throttle(TimeSpan.FromSeconds(1)).Subscribe(async waterPump => {
+            try
+            {
+                _logger.LogInformation($"Updating WaterPump{waterPump.Id} Duration: {waterPump.Duration} AutoPumpBegin: {waterPump.AutoPumpBegin}.");
+                var root = await _espWaterPumpsApi.SetPump(waterPump);
+                _waterPumpsRootSub.OnNext(root);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Update WaterPump{waterPump.Id} Failed.");
+            }
+        }));
         _disposables.Add(_updateFanSpeedSub.Throttle(TimeSpan.FromSeconds(1)).Subscribe(async speed => {
             try
             {
                 _logger.LogInformation($"Updating Fan Speed to {speed}");
-                var root = await _espApi.FanSet(speed);
+                var root = await _espGrowBoxApi.FanSet(speed);
                 _growBoxRootSub.OnNext(root);
             }
             catch (Exception ex)
@@ -53,7 +72,7 @@ public sealed class GrowBoxService : IAsyncDisposable
             {
                 
                 _logger.LogInformation($"Updating Light to {light}");
-                var root = await _espApi.LightSet(light);
+                var root = await _espGrowBoxApi.LightSet(light);
                 _growBoxRootSub.OnNext(root);
             }
             catch (Exception ex)
@@ -66,7 +85,7 @@ public sealed class GrowBoxService : IAsyncDisposable
             {
                 
                 _logger.LogInformation($"Updating light schedule");
-                var root = await _espApi.LightScheduleSet(x);
+                var root = await _espGrowBoxApi.LightScheduleSet(x);
                 _growBoxRootSub.OnNext(root);
             }
             catch (Exception ex)
@@ -117,7 +136,7 @@ public sealed class GrowBoxService : IAsyncDisposable
     {
         try
         {
-            var resp = await _espApi.Get();
+            var resp = await _espGrowBoxApi.Get();
             if (resp != null) 
             {
                 _growBoxRootSub.OnNext(resp);
@@ -125,7 +144,19 @@ public sealed class GrowBoxService : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Update Failed.");
+            _logger.LogError(ex, "Growbox Update Failed.");
+        }
+        try
+        {
+            var resp = await _espWaterPumpsApi.Get();
+            if (resp != null) 
+            {
+                _waterPumpsRootSub.OnNext(resp);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Waterpumps Update Failed.");
         }
     }
     
@@ -140,6 +171,11 @@ public sealed class GrowBoxService : IAsyncDisposable
         {
             _logger.LogError(ex, "Snapshot Failed.");
         }
+    }
+    
+    public void UpdatePump(WaterPump pump)
+    {
+        _updateWaterPumpSub.OnNext(pump);
     }
 
     public void UpdateLight(int lightValue, bool sunScheduleEnabled, int rise, int duration)
