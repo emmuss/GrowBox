@@ -1,5 +1,4 @@
-﻿@using GrowBox.Services
-@using GrowBox.State
+﻿@using GrowBox.State
 @using GrowBox.Abstractions.Model.EspApi
 @using GrowBox.Controls.Overlay
 @using GrowBox.Controls.Overlays
@@ -68,8 +67,8 @@
                 </div>
                 @foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
                 {
-                    <RadzenText @key="pump.Id" TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Pump 1</RadzenText>
-                    <RadzenSlider @key="pump.Id" Value=@pump.Duration TValue="int" style="width: 100%;" Step="10" Min="0" Max="1500" ValueChanged="(val) => UpdatePump(pump, val)" />
+                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Pump 1</RadzenText>
+                    <RadzenSlider Value=@pump.Duration TValue="int" style="width: 100%;" Step="10" Min="0" Max="1500" ValueChanged="(val) => UpdatePump(pump, val)" />
                 }
             </RadzenStack>
         </RadzenCard>
