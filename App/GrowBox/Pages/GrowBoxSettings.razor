@@ -177,7 +177,7 @@
         _subscriptions.ForEach(x => x.Dispose());
     }
 
-    private async Task UpdatePump(WaterPump pump, int val)
+    private void UpdatePump(WaterPump pump, int val)
     {
         _appGrowBox?.Service.UpdatePump(pump with { Duration = val});
     }

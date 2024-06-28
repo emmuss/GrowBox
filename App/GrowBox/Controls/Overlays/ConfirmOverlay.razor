@@ -3,24 +3,27 @@
 @using Blazor.MinimalApi.Client
 
 @inherits OverlayDataBase<Confirm>
-<RadzenCard style="margin:0.5rem; padding:0.5rem; max-width: 560px">
-    <div style="display: flex; align-items: center; flex-wrap: nowrap; justify-content: flex-end; margin-bottom: 0.5rem">
-        <RadzenText TextStyle="TextStyle.Overline" Text="@OverlayData?.Caption" style="flex: 1; text-overflow: ellipsis; text-wrap: none; overflow:hidden;"/>
-        <div style="flex: 0 0 0.5rem;">
+@if (OverlayData != null)
+{
+    <RadzenCard style="margin:0.5rem; padding:0.5rem; max-width: 560px">
+        <div style="display: flex; align-items: center; flex-wrap: nowrap; justify-content: flex-end; margin-bottom: 0.5rem">
+            <RadzenText TextStyle="TextStyle.Overline" Text="@OverlayData?.Caption" style="flex: 1; text-overflow: ellipsis; text-wrap: none; overflow:hidden;"/>
+            <div style="flex: 0 0 0.5rem;">
+            </div>
+            <RadzenButton Click="@(() => { OverlayData = null; Fail(); })" Icon="close" ButtonStyle="ButtonStyle.Light" style="width: 100%; flex: 0 0 32px;"/>
         </div>
-        <RadzenButton Click="@(() => { OverlayData = null; Fail();})" Icon="close" ButtonStyle="ButtonStyle.Light" style="width: 100%; flex: 0 0 32px;"/>
-    </div>
-    <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem" Style="width: 100%">
-        <RadzenText Text="@OverlayData?.Message" TextStyle="TextStyle.Body1" Style="margin: 1rem;"/>
-        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceAround" Gap="0.5rem">
-            <RadzenButton Click="@Succeed" 
-                          Text="@OverlayData.SuccessText" 
-                          Icon="@OverlayData.SuccessIcon" 
-                          ButtonStyle="@OverlayData.SuccessButtonStyle"/>
-            <RadzenButton Click="@(() => { OverlayData = null; Fail();})" 
-                          Text="@OverlayData.FailText" 
-                          Icon="@OverlayData.FailIcon" 
-                          ButtonStyle="@OverlayData.FailButtonStyle"/>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem" Style="width: 100%">
+            <RadzenText Text="@OverlayData?.Message" TextStyle="TextStyle.Body1" Style="margin: 1rem;"/>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceAround" Gap="0.5rem">
+                <RadzenButton Click="@Succeed"
+                              Text="@OverlayData.SuccessText"
+                              Icon="@OverlayData.SuccessIcon"
+                              ButtonStyle="@OverlayData.SuccessButtonStyle"/>
+                <RadzenButton Click="@(() => { OverlayData = null; Fail(); })"
+                              Text="@OverlayData.FailText"
+                              Icon="@OverlayData.FailIcon"
+                              ButtonStyle="@OverlayData.FailButtonStyle"/>
+            </RadzenStack>
         </RadzenStack>
-    </RadzenStack>
-</RadzenCard>
+    </RadzenCard>
+}
