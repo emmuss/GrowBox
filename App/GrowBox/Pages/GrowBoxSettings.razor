@@ -62,12 +62,9 @@
                 <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
                     <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Pumps</RadzenText>
                 </div>
-                <div>
-                    <RadzenLabel Text="Enable Sun Schedule" Component="_pumpsEnabled" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
-                </div>
                 @foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
                 {
-                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Pump 1</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">Pump @pump.Id</RadzenText>
                     <RadzenSlider Value=@pump.Duration TValue="int" style="width: 100%;" Step="10" Min="0" Max="1500" ValueChanged="(val) => UpdatePump(pump, val)" />
                 }
             </RadzenStack>
