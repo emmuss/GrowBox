@@ -226,12 +226,6 @@ void handlePumpTestAll() {
   }
 
   if (pumpDuration > 0) {
-                    {
-      Pump* pump = &context.pumps[i];
-      pump->duration = pumpDuration;
-      pumpDoStart(pump);
-    }
-    delay(pumpDuration * 1000);
     for (int i = 0; i < pumpCount; i++)
     {
       Pump* pump = &context.pumps[i];
@@ -239,6 +233,13 @@ void handlePumpTestAll() {
       pumpDoStart(pump);
     }
     serverSendContext();
+    delay(pumpDuration * 1000);
+    for (int i = 0; i < pumpCount; i++)
+    {
+      Pump* pump = &context.pumps[i];
+      pump->duration = pumpDuration;
+      pumpDoStop(pump);
+    }
     return;
   }
   serverSendInvalidRequest();
