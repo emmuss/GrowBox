@@ -27,8 +27,7 @@
                 </div>
                 <RadzenSlider 
                     TValue="int" style="width: 100%;" Step="1" Min="0" Max="255"
-                    @bind-Value:get=_fanSpeed
-                    @bind-Value:set="(x) => _fanSpeed = 255 - x" />
+                    @bind-Value="_fanSpeed" />
                 <RadzenButton Text="Set Fan Speed" ButtonStyle="ButtonStyle.Success" Click="SetFanSpeed"/>
             </RadzenStack>
         </RadzenCard>
@@ -223,7 +222,7 @@
         if (_appGrowBox is null)
             return;
         await UpdateGrowBoxData(
-            await _appGrowBox.Service.GrowBoxEsp.SetFanSpeed(new (_fanSpeed)));
+            await _appGrowBox.Service.GrowBoxEsp.SetFanSpeed(new (255 - _fanSpeed)));
     }
     
     private async Task UpdatePumps()
