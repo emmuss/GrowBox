@@ -8,6 +8,7 @@ using GrowBox.State;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Radzen;
+using Refit;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<AppComponent>("#app");
@@ -28,15 +29,19 @@ services.AddScoped(sp => {
 // 3rd party
 services.AddBlazoredLocalStorage();
 services.AddRadzenComponents();
+services.AddRefitClient<IWaterPumpsEsp>()
+    .ConfigureHttpClient(c => c.BaseAddress = new Uri("http://192.168.178.194"));
 
 // My
 services.AddScoped(typeof(SimpleStorage<>));
 services.AddScoped(typeof(SimpleStorage<,>));
 services.AddScoped<IOverlayService, OverlayService>();
 services.AddScoped<INavigationPanelService, NavigationPanelService>();
-services.AddScoped<GrowBoxServiceFactory>();
+services.AddScoped<GrowBoxRepositoryFactory>();
 services.AddScoped<MyJsInterop>();
 
 var host = builder.Build();
+var app = host.Services.GetRequiredService<App>();
+await app.Startup();
 
 await host.RunAsync();

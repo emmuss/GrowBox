@@ -2,7 +2,7 @@
 
 namespace GrowBox.State;
 
-public record AppGrowBox(Abstractions.Model.GrowBox GrowBox, GrowBoxService Service);
+public record AppGrowBox(Abstractions.Model.GrowBox GrowBox, GrowBoxRepository Service);
 
 public record AppState(bool IsStartup, AppGrowBox[] GrowBoxes)
 {

@@ -285,6 +285,42 @@ void handlePumpSet() {
   }
   serverSendInvalidRequest();
 }
+void handlePumpSetAll() {
+  Serial.println("handlePumpSetAll"); 
+  JSONVar jsonInput;
+  if (!serverParseJson(&jsonInput))
+    return;
+
+  int autoPumpBegin = -1337;
+  int duration = -1337;
+  bool scheduleChanged = false;
+  if (jsonInput.hasOwnProperty("autoPumpBegin")) { 
+    autoPumpBegin = (int)jsonInput["autoPumpBegin"];
+    scheduleChanged = true;
+  }
+   
+  if (jsonInput.hasOwnProperty("duration")) { 
+    duration = (int)jsonInput["duration"];
+    scheduleChanged = true;
+  }
+
+  for (int i = 0; i < pumpCount; i++) {
+    Pump* pump = &context.pumps[i];
+    if (autoPumpBegin != -1337) {
+      pump->autoPumpBegin = autoPumpBegin;
+      Serial.print("autoPumpBegin set to ");
+      Serial.println(autoPumpBegin);
+    }
+    if (duration != -1337) {
+      pump->duration = duration;
+      Serial.print("duration set to ");
+      Serial.println(duration);
+    }
+  }
+  
+  contextSaveChanges();
+  serverSendContext();
+}
 
 void handleNotFound() {
   if (server.method() == HTTP_OPTIONS)
@@ -314,6 +350,7 @@ void configureRoutes() {
   
   server.on("/get", handleGet);
   server.on("/pump/set", HTTP_POST, handlePumpSet);
+  server.on("/pump/set/all", HTTP_POST, handlePumpSetAll);
   server.on("/pump/test", HTTP_POST, handlePumpTest);
   server.on("/pump/test/all", HTTP_POST, handlePumpTestAll);
 

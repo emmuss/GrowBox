@@ -1,7 +1,4 @@
-﻿@using GrowBox.State
-@inject App App
-
-<Router AppAssembly="@typeof(AppComponent).Assembly">
+﻿<Router AppAssembly="@typeof(AppComponent).Assembly">
     <Found Context="routeData">
         <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
@@ -13,12 +10,3 @@
         </LayoutView>
     </NotFound>
 </Router>
-
-@code
-{
-    protected override async Task OnInitializedAsync()
-    {
-        await App.Startup();
-        await base.OnInitializedAsync();
-    }
-}

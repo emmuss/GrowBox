@@ -2,15 +2,15 @@
 @using GrowBox.Abstractions.Model.EspApi
 @using GrowBox.Controls.Overlay
 @using GrowBox.Controls.Overlays
+@using GrowBox.Services
 
 @page "/growbox/{GrowBoxId:guid}/settings"
-
-@implements IDisposable
 
 @inject App App
 @inject IJSRuntime Js
 @inject NavigationManager NavigationManager
 @inject IOverlayService OverlayService
+@inject IWaterPumpsEsp WaterPumpsService
 
 @if (_growBoxRoot != null && _appGrowBox != null) 
 {
@@ -25,7 +25,11 @@
                     <RadzenIcon Icon="tune" /> 
                     <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Fan Speed</RadzenText>
                 </div>
-                <RadzenSlider Value=@_fanSpeed TValue="int" style="width: 100%;" Step="1" Min="0" Max="255" ValueChanged="(val) => { _fanSpeed = val; _appGrowBox.Service.UpdateFanSpeed(255 - val); }" />
+                <RadzenSlider 
+                    TValue="int" style="width: 100%;" Step="1" Min="0" Max="255"
+                    @bind-Value:get=_fanSpeed
+                    @bind-Value:set="(x) => _fanSpeed = 255 - x" />
+                <RadzenButton Text="Set Fan Speed" ButtonStyle="ButtonStyle.Success" Click="SetFanSpeed"/>
             </RadzenStack>
         </RadzenCard>
 
@@ -35,9 +39,14 @@
                     <RadzenIcon Icon="brightness_low" /> 
                     <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Light</RadzenText>
                 </div>
-                <RadzenSlider Value=@_light TValue="int" style="width: 100%;" Step="19" Min="-190" Max="0" ValueChanged="(val) => { _light = val; UpdateLight(); }" />
-                <div>
-                    <RadzenCheckBox Value=@_sunScheduleEnabled TValue="bool" ValueChanged="(val) => { _sunScheduleEnabled = val; UpdateLight(); }" Name="_sunScheduleEnabled" >  </RadzenCheckBox>
+                <RadzenSlider
+                    TValue="int" style="width: 100%;" Step="19" Min="-190" Max="0"
+                    @bind-Value=_light />
+                <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                    <RadzenIcon Icon="schedule"/>
+                    <RadzenCheckBox
+                        TValue="bool" Name="_sunScheduleEnabled"
+                        @bind-Value=@_sunScheduleEnabled/>
                     <RadzenLabel Text="Enable Sun Schedule" Component="_sunScheduleEnabled" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -53,20 +62,55 @@
                     </div>                    
                     <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_set.ToString(@"hh\:mm\:ss")</RadzenText>
                 </div>
-                <RadzenSlider Range="true" Value=@RiseAndSet TValue="IEnumerable<int>" style="width: 100%;" Step="1800" Min="0" Max="86400" ValueChanged="(values) => { RiseAndSet = values; UpdateLight(); }" />
+                <RadzenSlider
+                    @bind-Value=@RiseAndSet 
+                    TValue="IEnumerable<int>" style="width: 100%;" Step="1800" Min="0" Max="86400" Range="true" />
+                <RadzenButton Text="Set Light" ButtonStyle="ButtonStyle.Success" Click="UpdateLight"/>
             </RadzenStack>
         </RadzenCard>
         
         <RadzenCard Variant="Variant.Filled">
             <RadzenStack Gap="1rem">
                 <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
-                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Pumps</RadzenText>
+                    <div>
+                        <RadzenIcon Icon="water"/>
+                    </div>
+                    <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">Pumps</RadzenText>
+                </div>
+                
+                <div>
+                    <RadzenNumeric TValue="int" Format="# ml / min"  @bind-Value="_pumpMilliLiterPerMinute" Name="_pumpMilliLiterPerMinute" />
+                    <RadzenLabel Text="Pump Volume" Component="_pumpMilliLiterPerMinute" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
                 </div>
                 @foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
                 {
-                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">Pump @pump.Id</RadzenText>
-                    <RadzenSlider Value=@pump.Duration TValue="int" style="width: 100%;" Step="10" Min="0" Max="1500" ValueChanged="(val) => UpdatePump(pump, val)" />
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">Pump @pump.Id</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">@pump.LastRun.ToDateFromUnixSeconds()</RadzenText>
+                    </div>
+                    <RadzenStack Gap="1rem" Style="margin-left: 1rem">
+                        <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                            <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">@(_pumpMilliLiterPerMinute * TimeSpan.FromSeconds(pump.Duration).TotalMinutes) ml</RadzenText>
+                            <RadzenSlider @bind-Value=@pump.Duration TValue="int" style="width: 100%;" Step="60" Min="0" Max="@PumpMaximumSeconds" />
+                            <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Danger" Click="async () => await TestPump(pump)" />
+                        </div>
+                        <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                            <RadzenIcon Icon="schedule"/>
+                            <RadzenCheckBox
+                                @bind-Value:get="(pump.AutoPumpBegin > -1)"
+                                @bind-Value:set="(x)=> pump.AutoPumpBegin = x ? 16200 : -1"
+                                TValue="bool" />
+                            @if (pump.AutoPumpBegin > -1)
+                            {
+                                <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">
+                                    @TimeSpan.FromSeconds(pump.AutoPumpBegin)
+                                </RadzenText>
+                                <RadzenSlider @bind-Value=@pump.AutoPumpBegin TValue="int" style="width: 100%;" Step="@((30 * 60).ToString())" Min="-1" Max="@(60 * 60 * 24)"/>
+                            }
+                        </div>
+                    </RadzenStack>
                 }
+                <RadzenButton Text="Set Pumps" ButtonStyle="ButtonStyle.Success" Click="UpdatePumps"/>
             </RadzenStack>
         </RadzenCard>
         
@@ -82,8 +126,8 @@
     private AppGrowBox? _appGrowBox;
     private GrowBoxEspRoot? _growBoxRoot;
     private WaterPumpsEspRoot? _waterPumpsRoot;
-    private readonly List<IDisposable> _subscriptions = [];
-    
+    private int _pumpMilliLiterPerMinute = 26;
+    private int PumpMaximumSeconds => (int)TimeSpan.FromMinutes(3000d / _pumpMilliLiterPerMinute).TotalSeconds;
 
     private bool _sunScheduleEnabled = false;
 
@@ -119,62 +163,88 @@
 
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
 
-    protected override void OnParametersSet()
+    private async Task UpdateGrowBoxData(GrowBoxEspRoot? growBoxRoot = null)
+    {
+        if (_appGrowBox is null)
+            return;
+        _growBoxRoot = growBoxRoot ?? await _appGrowBox.Service.GrowBoxEsp.Get();
+        _fanSpeed = 255 - _growBoxRoot?.FanSpeed ?? 0;
+        var light = (_growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false) ? _growBoxRoot.LightSchedule.SunTargetLight : (_growBoxRoot?.Light ?? 255);
+        _light = ((light) - 40)*-1;
+        var rise = _growBoxRoot?.LightSchedule?.Sunrise ?? 21600;
+        var set = rise + (_growBoxRoot?.LightSchedule?.SunDuration ?? 64800);
+        RiseAndSet = [rise, set];
+        _sunScheduleEnabled = _growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false;
+    }
+
+    private async Task UpdateWaterPumpsData(WaterPumpsEspRoot? waterPumpsRoot = null)
+    {
+        if (_appGrowBox is null)
+            return;
+        _waterPumpsRoot = waterPumpsRoot ?? await _appGrowBox.Service.WaterPumpsEsp.Get();
+    }
+
+    protected override async Task OnParametersSetAsync()
     {
         if (GrowBoxId == Guid.Empty)
         {
-            base.OnParametersSet();
             return;
         }
-        
-        IDisposable idSub = default!;
-        idSub = App.AppState.Subscribe(appState =>
-        {
-            _appGrowBox = appState.GrowBoxes.FirstOrDefault(y => y.GrowBox.Id == GrowBoxId);
-            if (_appGrowBox is null)
-                return;
-            _subscriptions.Add(
-                _appGrowBox.Service.GrowBoxRoot.Subscribe(root => {
-                    _growBoxRoot = root;
-                    _fanSpeed = 255 - _growBoxRoot?.FanSpeed ?? 0;
-                    var light = (_growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false) ? _growBoxRoot.LightSchedule.SunTargetLight : (_growBoxRoot?.Light ?? 255);
-                    _light = ((light) - 40)*-1;
-                    var rise = _growBoxRoot?.LightSchedule?.Sunrise ?? 21600;
-                    var set = rise + (_growBoxRoot?.LightSchedule?.SunDuration ?? 64800);
-                    RiseAndSet = [rise, set];
-                    _sunScheduleEnabled = _growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false;
-                    StateHasChanged();
-                }));
-            _subscriptions.Add(
-                _appGrowBox.Service.WaterPumpsRoot.Subscribe(root => {
-                    _waterPumpsRoot = root;
-                    StateHasChanged();
-                }));
-            _appGrowBox.Service.UpdateAsync();
-            // ReSharper disable once AccessToModifiedClosure
-            // we want to dispose ourself after init.
-            idSub.Dispose();
-        });
-        
-        base.OnParametersSet();
+
+        _appGrowBox = App.GetAppGrowBox(GrowBoxId);
+        await UpdateGrowBoxData();
+        await UpdateWaterPumpsData();
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void UpdateLight()
+    private async Task UpdateLight()
     {
+        if (_appGrowBox is null)
+            return;
         var val = _light;
         var s = (val*-1 + 40);
         s = s > 255 ? 255 : s;
         s = s < 0   ? 0   : s;
-        _appGrowBox?.Service.UpdateLight(s, _sunScheduleEnabled, RiseAndSet.First(), RiseAndSet.Last() - RiseAndSet.First());
-    }
 
-    public void Dispose()
-    {
-        _subscriptions.ForEach(x => x.Dispose());
+        if (_sunScheduleEnabled)
+        {
+            await UpdateGrowBoxData(
+                await _appGrowBox.Service.GrowBoxEsp.SetLightSchedule(
+                    new (_sunScheduleEnabled, RiseAndSet.First(), RiseAndSet.Last() - RiseAndSet.First(), s)));
+        }
+        else
+        {
+            await UpdateGrowBoxData(
+                await _appGrowBox.Service.GrowBoxEsp.SetLight(new(s)));
+        }
     }
-
-    private void UpdatePump(WaterPump pump, int val)
+    private async Task SetFanSpeed()
     {
-        _appGrowBox?.Service.UpdatePump(pump with { Duration = val});
+        if (_appGrowBox is null)
+            return;
+        await UpdateGrowBoxData(
+            await _appGrowBox.Service.GrowBoxEsp.SetFanSpeed(new (_fanSpeed)));
+    }
+    
+    private async Task UpdatePumps()
+    {
+        if (_appGrowBox == null) return;
+        WaterPumpsEspRoot? last = null;
+        foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
+        {
+            last = await _appGrowBox.Service.WaterPumpsEsp.Set(pump);
+        }
+        
+        if (last is not null) await UpdateWaterPumpsData(last);
+    }
+    private async Task TestPump(WaterPump pump)
+    {
+        if (_appGrowBox == null) return;
+
+        var confirm = await OverlayService.ConfirmWaterPumpTest(pump);
+        if (!confirm)
+            return;
+        
+        var result = await _appGrowBox.Service.WaterPumpsEsp.Test(pump);
     }
 }

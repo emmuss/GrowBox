@@ -13,7 +13,7 @@ public class App
     private readonly MinimalHttpClient<Abstractions.Model.GrowBox[]> _growBoxRead;
     private readonly MinimalHttpClient<Abstractions.Model.GrowBox, Abstractions.Model.GrowBox> _growBoxWrite;
     private readonly INavigationPanelService _navigationPanelService;
-    private readonly GrowBoxServiceFactory _growBoxServiceFactory;
+    private readonly GrowBoxRepositoryFactory _growBoxServiceFactory;
     private readonly ILogger<App> _logger;
     private readonly BehaviorSubject<AppState> _appStateSubject = new(State.AppState.DEFAULT);
     public IObservable<AppState> AppState { get; }
@@ -23,7 +23,7 @@ public class App
         MinimalHttpClient<Abstractions.Model.GrowBox[]> growBoxRead, 
         MinimalHttpClient<Abstractions.Model.GrowBox, Abstractions.Model.GrowBox> growBoxWrite,
         INavigationPanelService navigationPanelService,
-        GrowBoxServiceFactory growBoxServiceFactory,
+        GrowBoxRepositoryFactory growBoxServiceFactory,
         ILogger<App> logger)
     {
         _growBoxRead = growBoxRead;
@@ -46,6 +46,9 @@ public class App
         }
         _logger.LogInformation("App startup succeeded.");
     }
+
+    public AppGrowBox GetAppGrowBox(Guid id)
+        => AppStateCurrent.GrowBoxes.FirstOrDefault(x => x.GrowBox.Id == id)?? throw new InvalidOperationException();
 
     public async Task<Abstractions.Model.GrowBox> CreateGrowBox(Abstractions.Model.GrowBox growBox)
     {
