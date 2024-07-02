@@ -18,22 +18,31 @@ public sealed class GrowBoxRepository : IAsyncDisposable
     private Task? _updateTask;
     private CancellationTokenSource? _cancellationTokenSource;
 
-    private readonly List<IDisposable> _disposables = new();
     private readonly IGrowBoxEsp _espGrowBox;
-    private readonly IWaterPumpsEsp _espWaterPumps;
+    private IWaterPumpsEsp? _espWaterPumps;
 
     public IGrowBoxEsp GrowBoxEsp => _espGrowBox;
-    public IWaterPumpsEsp WaterPumpsEsp => _espWaterPumps;
+    public IWaterPumpsEsp? WaterPumpsEsp => _espWaterPumps;
 
 
     public GrowBoxRepository(HttpClient http, ILogger<GrowBoxRepository> logger, Abstractions.Model.GrowBox growBox)
     {
         _espGrowBox = RestService.For<IGrowBoxEsp>(growBox.GrowBoxUrl);
-        // TODO: make configurable...
-        _espWaterPumps = RestService.For<IWaterPumpsEsp>("http://192.168.178.194");
         _http = http;
         _logger = logger;
         _growBox = growBox;
+        TryEnableWaterPumpsFeature();
+    }
+
+    public bool TryEnableWaterPumpsFeature()
+    {
+        if (!string.IsNullOrEmpty(_growBox.WaterPumpsUrl))
+        {
+            _espWaterPumps = RestService.For<IWaterPumpsEsp>(_growBox.WaterPumpsUrl);
+            return true;
+        }
+
+        return false;
     }
 
     public async Task Stop()
@@ -86,8 +95,11 @@ public sealed class GrowBoxRepository : IAsyncDisposable
         }
         try
         {
-            var resp = await _espWaterPumps.Get();
-            _waterPumpsRootSub.OnNext(resp);
+            if (_espWaterPumps != null)
+            {
+                var resp = await _espWaterPumps.Get();
+                _waterPumpsRootSub.OnNext(resp);
+            }
         }
         catch (Exception ex)
         {
@@ -111,6 +123,5 @@ public sealed class GrowBoxRepository : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await Stop();
-        _disposables.ForEach(disposable => disposable.Dispose());
     }
 }

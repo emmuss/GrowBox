@@ -68,51 +68,54 @@
             </RadzenStack>
         </RadzenCard>
         
-        <RadzenCard Variant="Variant.Filled">
-            <RadzenStack Gap="1rem">
-                <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+        @if (_appGrowBox.Service.WaterPumpsEsp != null)
+        {
+            <RadzenCard Variant="Variant.Filled">
+                <RadzenStack Gap="1rem">
+                    <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                        <div>
+                            <RadzenIcon Icon="water"/>
+                        </div>
+                        <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">Pumps</RadzenText>
+                    </div>
+
                     <div>
-                        <RadzenIcon Icon="water"/>
+                        <RadzenNumeric TValue="int" Format="# ml / min" @bind-Value="_pumpMilliLiterPerMinute" Name="_pumpMilliLiterPerMinute"/>
+                        <RadzenLabel Text="Pump Volume" Component="_pumpMilliLiterPerMinute" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
                     </div>
-                    <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">Pumps</RadzenText>
-                </div>
-                
-                <div>
-                    <RadzenNumeric TValue="int" Format="# ml / min"  @bind-Value="_pumpMilliLiterPerMinute" Name="_pumpMilliLiterPerMinute" />
-                    <RadzenLabel Text="Pump Volume" Component="_pumpMilliLiterPerMinute" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
-                </div>
-                @foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
-                {
-                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                        <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">Pump @pump.Id</RadzenText>
-                        <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">@pump.LastRun.ToDateFromUnixSeconds()</RadzenText>
-                    </div>
-                    <RadzenStack Gap="1rem" Style="margin-left: 1rem">
-                        <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
-                            <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">@(_pumpMilliLiterPerMinute * TimeSpan.FromSeconds(pump.Duration).TotalMinutes) ml</RadzenText>
-                            <RadzenSlider @bind-Value=@pump.Duration TValue="int" style="width: 100%;" Step="60" Min="0" Max="@PumpMaximumSeconds" />
-                            <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Danger" Click="async () => await TestPump(pump)" />
+                    @foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
+                    {
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                            <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">Pump @pump.Id</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">@pump.LastRun.ToDateFromUnixSeconds()</RadzenText>
                         </div>
-                        <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
-                            <RadzenIcon Icon="schedule"/>
-                            <RadzenCheckBox
-                                @bind-Value:get="(pump.AutoPumpBegin > -1)"
-                                @bind-Value:set="(x)=> pump.AutoPumpBegin = x ? 16200 : -1"
-                                TValue="bool" />
-                            @if (pump.AutoPumpBegin > -1)
-                            {
-                                <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">
-                                    @TimeSpan.FromSeconds(pump.AutoPumpBegin)
-                                </RadzenText>
-                                <RadzenSlider @bind-Value=@pump.AutoPumpBegin TValue="int" style="width: 100%;" Step="@((30 * 60).ToString())" Min="-1" Max="@(60 * 60 * 24)"/>
-                            }
-                        </div>
-                    </RadzenStack>
-                }
-                <RadzenButton Text="Set Pumps" ButtonStyle="ButtonStyle.Success" Click="UpdatePumps"/>
-            </RadzenStack>
-        </RadzenCard>
-        
+                        <RadzenStack Gap="1rem" Style="margin-left: 1rem">
+                            <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                                <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">@(_pumpMilliLiterPerMinute * TimeSpan.FromSeconds(pump.Duration).TotalMinutes) ml</RadzenText>
+                                <RadzenSlider @bind-Value=@pump.Duration TValue="int" style="width: 100%;" Step="60" Min="0" Max="@PumpMaximumSeconds"/>
+                                <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Danger" Click="async () => await TestPump(pump)"/>
+                            </div>
+                            <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                                <RadzenIcon Icon="schedule"/>
+                                <RadzenCheckBox
+                                    @bind-Value:get="(pump.AutoPumpBegin > -1)"
+                                    @bind-Value:set="(x) => pump.AutoPumpBegin = x ? 16200 : -1"
+                                    TValue="bool"/>
+                                @if (pump.AutoPumpBegin > -1)
+                                {
+                                    <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">
+                                        @TimeSpan.FromSeconds(pump.AutoPumpBegin)
+                                    </RadzenText>
+                                    <RadzenSlider @bind-Value=@pump.AutoPumpBegin TValue="int" style="width: 100%;" Step="@((30 * 60).ToString())" Min="-1" Max="@(60 * 60 * 24)"/>
+                                }
+                            </div>
+                        </RadzenStack>
+                    }
+                    <RadzenButton Text="Set Pumps" ButtonStyle="ButtonStyle.Success" Click="UpdatePumps"/>
+                </RadzenStack>
+            </RadzenCard>
+        }
+
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
             <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Click=@(async () => { await DeleteGrowBox(); } ) />
         </RadzenStack>
@@ -178,7 +181,7 @@
 
     private async Task UpdateWaterPumpsData(WaterPumpsEspRoot? waterPumpsRoot = null)
     {
-        if (_appGrowBox is null)
+        if (_appGrowBox?.Service?.WaterPumpsEsp is null)
             return;
         _waterPumpsRoot = waterPumpsRoot ?? await _appGrowBox.Service.WaterPumpsEsp.Get();
     }
@@ -227,7 +230,7 @@
     
     private async Task UpdatePumps()
     {
-        if (_appGrowBox == null) return;
+        if (_appGrowBox?.Service?.WaterPumpsEsp == null) return;
         WaterPumpsEspRoot? last = null;
         foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
         {
@@ -238,7 +241,7 @@
     }
     private async Task TestPump(WaterPump pump)
     {
-        if (_appGrowBox == null) return;
+        if (_appGrowBox?.Service?.WaterPumpsEsp == null) return;
 
         var confirm = await OverlayService.ConfirmWaterPumpTest(pump);
         if (!confirm)

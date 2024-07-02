@@ -32,6 +32,12 @@ public class GrowBox : IEntityBase
     /// </summary>
     [StringLength(1024)]
     public string GrowBoxUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Url to the ESP controlling the water pumps.
+    /// </summary>
+    [StringLength(1024)]
+    public string? WaterPumpsUrl { get; set; } = string.Empty;
     
     /// <summary>
     /// Web Cam Stream Url "http://growbox-webcam-1:8080/?action=stream"
