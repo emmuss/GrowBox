@@ -7,42 +7,20 @@ namespace GrowBox.Services;
 
 public sealed class GrowBoxRepository : IAsyncDisposable
 {
-    private readonly HttpClient _http;
     private readonly ILogger<GrowBoxRepository> _logger;
-    private readonly Abstractions.Model.GrowBox _growBox;
     private readonly Subject<GrowBoxEspRoot?> _growBoxRootSub = new();
-    private readonly Subject<WaterPumpsEspRoot?> _waterPumpsRootSub = new();
     public IObservable<GrowBoxEspRoot?> GrowBoxRoot => _growBoxRootSub.AsObservable();
-    public IObservable<WaterPumpsEspRoot?> WaterPumpsRoot => _waterPumpsRootSub.AsObservable();
 
     private Task? _updateTask;
     private CancellationTokenSource? _cancellationTokenSource;
 
     private readonly IGrowBoxEsp _espGrowBox;
-    private IWaterPumpsEsp? _espWaterPumps;
-
     public IGrowBoxEsp GrowBoxEsp => _espGrowBox;
-    public IWaterPumpsEsp? WaterPumpsEsp => _espWaterPumps;
 
-
-    public GrowBoxRepository(HttpClient http, ILogger<GrowBoxRepository> logger, Abstractions.Model.GrowBox growBox)
+    public GrowBoxRepository(ILogger<GrowBoxRepository> logger, Abstractions.Model.GrowBox growBox)
     {
         _espGrowBox = RestService.For<IGrowBoxEsp>(growBox.GrowBoxUrl);
-        _http = http;
         _logger = logger;
-        _growBox = growBox;
-        TryEnableWaterPumpsFeature();
-    }
-
-    public bool TryEnableWaterPumpsFeature()
-    {
-        if (!string.IsNullOrEmpty(_growBox.WaterPumpsUrl))
-        {
-            _espWaterPumps = RestService.For<IWaterPumpsEsp>(_growBox.WaterPumpsUrl);
-            return true;
-        }
-
-        return false;
     }
 
     public async Task Stop()
@@ -77,11 +55,6 @@ public sealed class GrowBoxRepository : IAsyncDisposable
         }, _cancellationTokenSource.Token);
     }
 
-    public async void UpdateAsync()
-    {
-        await Update();
-    }
-
     public async Task Update()
     {
         try
@@ -92,31 +65,6 @@ public sealed class GrowBoxRepository : IAsyncDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Growbox Update Failed.");
-        }
-        try
-        {
-            if (_espWaterPumps != null)
-            {
-                var resp = await _espWaterPumps.Get();
-                _waterPumpsRootSub.OnNext(resp);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Waterpumps Update Failed.");
-        }
-    }
-    
-    public async Task Snapshot()
-    {
-        try
-        {
-            var url = Path.Combine(_growBox.WebCamSnapshotUrl ?? throw new Exception("No Api"), "/action/snapshot");
-            var resp = await _http.GetAsync(url);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Snapshot Failed.");
         }
     }
     

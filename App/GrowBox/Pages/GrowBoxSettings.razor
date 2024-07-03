@@ -3,6 +3,7 @@
 @using GrowBox.Controls.Overlay
 @using GrowBox.Controls.Overlays
 @using GrowBox.Services
+@using Refit
 
 @page "/growbox/{GrowBoxId:guid}/settings"
 
@@ -28,7 +29,7 @@
                 <RadzenSlider 
                     TValue="int" style="width: 100%;" Step="1" Min="0" Max="255"
                     @bind-Value="_fanSpeed" />
-                <RadzenButton Text="Set Fan Speed" ButtonStyle="ButtonStyle.Success" Click="SetFanSpeed"/>
+                <RadzenButton Text="Set Fan Speed" ButtonStyle="ButtonStyle.Success" Click="UpdateFanSpeed"/>
             </RadzenStack>
         </RadzenCard>
 
@@ -68,7 +69,7 @@
             </RadzenStack>
         </RadzenCard>
         
-        @if (_appGrowBox.Service.WaterPumpsEsp != null)
+        @if (_waterPumpsRoot != null)
         {
             <RadzenCard Variant="Variant.Filled">
                 <RadzenStack Gap="1rem">
@@ -83,7 +84,7 @@
                         <RadzenNumeric TValue="int" Format="# ml / min" @bind-Value="_pumpMilliLiterPerMinute" Name="_pumpMilliLiterPerMinute"/>
                         <RadzenLabel Text="Pump Volume" Component="_pumpMilliLiterPerMinute" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
                     </div>
-                    @foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
+                    @foreach (var pump in _waterPumpsRoot.Pumps)
                     {
                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                             <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">Pump @pump.Id</RadzenText>
@@ -128,29 +129,17 @@
     private AppGrowBox? _appGrowBox;
     private GrowBoxEspRoot? _growBoxRoot;
     private WaterPumpsEspRoot? _waterPumpsRoot;
+    private IWaterPumpsEsp? _waterPumpsEsp;
     private int _pumpMilliLiterPerMinute = 26;
     private int PumpMaximumSeconds => (int)TimeSpan.FromMinutes(3000d / _pumpMilliLiterPerMinute).TotalSeconds;
-
     private bool _sunScheduleEnabled = false;
-
-    TimeSpan _rise = TimeSpan.Zero;
-    TimeSpan _sunDuration = TimeSpan.Zero;
-    TimeSpan _set = TimeSpan.Zero;
-
-    IEnumerable<int> _riseAndSet = new int[] { 21600, 21600 + 64800 };
-    IEnumerable<int> RiseAndSet { get => _riseAndSet; set => SetRiseAndSet(value); }
-
-    private async Task DeleteGrowBox()
-    {
-        if (_appGrowBox is null) return;
-        
-        if (!await OverlayService.ConfirmDelete("GrowBox"))
-            return;
-        
-        await App.DeleteGrowBox(_appGrowBox.GrowBox); 
-        NavigationManager.NavigateTo("/");
-    }
-
+    private TimeSpan _rise = TimeSpan.Zero;
+    private TimeSpan _sunDuration = TimeSpan.Zero;
+    private TimeSpan _set = TimeSpan.Zero;
+    private IEnumerable<int> _riseAndSet = new int[] { 21600, 21600 + 64800 };
+    private IEnumerable<int> RiseAndSet { get => _riseAndSet; set => SetRiseAndSet(value); }
+    private int _fanSpeed = 0;
+    private int _light = 0;
     private void SetRiseAndSet(IEnumerable<int> values)
     {
         var riseAndSet = values as int[] ?? values.ToArray();
@@ -159,9 +148,6 @@
         _set = TimeSpan.FromSeconds(riseAndSet.Last());
         _sunDuration = _set - _rise;
     }
-
-    private int _fanSpeed = 0;
-    private int _light = 0;
 
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
 
@@ -178,12 +164,16 @@
         RiseAndSet = [rise, set];
         _sunScheduleEnabled = _growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false;
     }
-
     private async Task UpdateWaterPumpsData(WaterPumpsEspRoot? waterPumpsRoot = null)
     {
-        if (_appGrowBox?.Service?.WaterPumpsEsp is null)
-            return;
-        _waterPumpsRoot = waterPumpsRoot ?? await _appGrowBox.Service.WaterPumpsEsp.Get();
+        if (_waterPumpsEsp is null)
+        {
+            if (!string.IsNullOrEmpty(_appGrowBox?.GrowBox.WaterPumpsUrl))
+                _waterPumpsEsp = RestService.For<IWaterPumpsEsp>(_appGrowBox.GrowBox.WaterPumpsUrl);
+            else
+                return;
+        }
+        _waterPumpsRoot = waterPumpsRoot ?? await _waterPumpsEsp.Get();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -220,33 +210,42 @@
                 await _appGrowBox.Service.GrowBoxEsp.SetLight(new(s)));
         }
     }
-    private async Task SetFanSpeed()
+    private async Task UpdateFanSpeed()
     {
         if (_appGrowBox is null)
             return;
         await UpdateGrowBoxData(
             await _appGrowBox.Service.GrowBoxEsp.SetFanSpeed(new (255 - _fanSpeed)));
     }
-    
     private async Task UpdatePumps()
     {
-        if (_appGrowBox?.Service?.WaterPumpsEsp == null) return;
+        if (_waterPumpsEsp is null) return;
         WaterPumpsEspRoot? last = null;
         foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
         {
-            last = await _appGrowBox.Service.WaterPumpsEsp.Set(pump);
+            last = await _waterPumpsEsp.Set(pump);
         }
         
         if (last is not null) await UpdateWaterPumpsData(last);
     }
     private async Task TestPump(WaterPump pump)
     {
-        if (_appGrowBox?.Service?.WaterPumpsEsp == null) return;
+        if (_waterPumpsEsp is null) return;
 
         var confirm = await OverlayService.ConfirmWaterPumpTest(pump);
         if (!confirm)
             return;
         
-        var result = await _appGrowBox.Service.WaterPumpsEsp.Test(pump);
+        var result = await _waterPumpsEsp.Test(pump);
+    }
+    private async Task DeleteGrowBox()
+    {
+        if (_appGrowBox is null) return;
+        
+        if (!await OverlayService.ConfirmDelete("GrowBox"))
+            return;
+        
+        await App.DeleteGrowBox(_appGrowBox.GrowBox); 
+        NavigationManager.NavigateTo("/");
     }
 }
