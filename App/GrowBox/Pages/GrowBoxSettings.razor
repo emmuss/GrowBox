@@ -81,8 +81,7 @@
                     </div>
 
                     <div>
-                        <RadzenNumeric TValue="int" Format="# ml / min" @bind-Value="_pumpMilliLiterPerMinute" Name="_pumpMilliLiterPerMinute"/>
-                        <RadzenLabel Text="Pump Volume" Component="_pumpMilliLiterPerMinute" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
+                        <span> @_waterPumpsRoot.PumpMilliLiterPerMinute ml / min Pump Volume</span>
                     </div>
                     @foreach (var pump in _waterPumpsRoot.Pumps)
                     {
@@ -92,7 +91,7 @@
                         </div>
                         <RadzenStack Gap="1rem" Style="margin-left: 1rem">
                             <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
-                                <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">@(_pumpMilliLiterPerMinute * TimeSpan.FromSeconds(pump.Duration).TotalMinutes) ml</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">@(_waterPumpsRoot.PumpMilliLiterPerMinute * TimeSpan.FromSeconds(pump.Duration).TotalMinutes) ml</RadzenText>
                                 <RadzenSlider @bind-Value=@pump.Duration TValue="int" style="width: 100%;" Step="60" Min="0" Max="@PumpMaximumSeconds"/>
                                 <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Danger" Click="async () => await TestPump(pump)"/>
                             </div>
@@ -130,8 +129,7 @@
     private GrowBoxEspRoot? _growBoxRoot;
     private WaterPumpsEspRoot? _waterPumpsRoot;
     private IWaterPumpsEsp? _waterPumpsEsp;
-    private int _pumpMilliLiterPerMinute = 26;
-    private int PumpMaximumSeconds => (int)TimeSpan.FromMinutes(3000d / _pumpMilliLiterPerMinute).TotalSeconds;
+    private int PumpMaximumSeconds => (int)TimeSpan.FromMinutes(3000d / _waterPumpsRoot?.PumpMilliLiterPerMinute ?? 1).TotalSeconds;
     private bool _sunScheduleEnabled = false;
     private TimeSpan _rise = TimeSpan.Zero;
     private TimeSpan _sunDuration = TimeSpan.Zero;

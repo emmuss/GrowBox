@@ -42,6 +42,7 @@ const int pPump2 = D6;
 const int pPump3 = D7;
 const int pPump4 = D0;
 
+#define PUMP_ML_PER_MINUTE 26
 
 struct Pump
 {
@@ -133,6 +134,7 @@ String pumpToJson(Pump pump)
     result += ", \"lastRun\" :" + String(pump.lastRun);
     result += ", \"lastRunDuration\" :" + String(pump.lastRunDuration);
     result += ", \"relaisPin\" :" + String(pump.relaisPin);
+    result += ", \"isPumpActive\" :" + String(pump.isActive ? "true":"false");    
   result += "}";
   return result;
 }
@@ -142,6 +144,7 @@ void serverSendContext() {
     String result = "{";
       result += "\"me\" : \"" + String(hostname) + "\"";
       result += ", \"timestamp\" :" + String(context.timestamp);
+      result += ", \"pumpMilliLiterPerMinute\" :" + String(PUMP_ML_PER_MINUTE);
       result += ", \"pumps\" :[";
       for (int i = 0; i < pumpCount; i++)
       {

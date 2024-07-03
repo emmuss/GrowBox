@@ -2,6 +2,8 @@
 @using GrowBox.State
 @using GrowBox.Abstractions.Model.EspApi
 @using Blazor.MinimalApi.Client
+@using GrowBox.Services
+@using Refit
 
 @page "/growbox/{GrowBoxId:guid}"
 
@@ -12,7 +14,7 @@
 @inject MinimalHttpClient<Abstractions.Model.SensorReadingRequest, Abstractions.Model.SensorReading[]> SensorReadings
 @inject IJSRuntime Js
 
-@if (_appGrowBox != null && _root != null) 
+@if (_appGrowBox != null && _growBoxRoot != null) 
 {
     <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
@@ -27,13 +29,30 @@
         <RadzenCard Variant="Variant.Filled">
             <RadzenStack Gap="0.5rem">
                 <RadzenText TextStyle="TextStyle.Subtitle1" TextAlign="TextAlign.Center" style="margin-bottom: 0;">@_appGrowBox.GrowBox.Name</RadzenText>
-                <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" style="margin-bottom: 0; font-size: 3rem; font-weight: 100;">@Math.Round(_root.Temperature) °C</RadzenText>
+                <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" style="margin-bottom: 0; font-size: 3rem; font-weight: 100;">@Math.Round(_growBoxRoot.Temperature) °C</RadzenText>
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0">
-                    <RadzenIcon Icon="water_drop"/> <span>@Math.Round(_root.Humidity, 1) %</span>
+                    <RadzenIcon Icon="water_drop"/> <span>@Math.Round(_growBoxRoot.Humidity, 1) %</span>
                     <span class="mx-2">|</span>
-                    <span>@(Math.Round(_root.Pressure / 100, 1)) hpa</span>
+                    <span>@(Math.Round(_growBoxRoot.Pressure / 100, 1)) hpa</span>
                 </RadzenStack>
-                @if (_root.LightSchedule.SunScheduleEnabled)
+                @if (_waterPumpsRoot != null)
+                {
+                    var pumpsActiveLast24Hrs = _waterPumpsRoot.Pumps
+                        .Select(x => (LastRun: DateTime.UnixEpoch.AddSeconds(x.LastRun), Pump: x))
+                        .Where(x => x.LastRun > DateTime.Now.AddDays(-1)).ToArray();
+
+                    var lastActivePumpCount = pumpsActiveLast24Hrs.Length;
+                    var mlWaterLast24Hours = pumpsActiveLast24Hrs.Sum(x => 
+                        _waterPumpsRoot.PumpMilliLiterPerMinute * TimeSpan.FromSeconds(x.Pump.Duration).TotalMinutes);
+                        
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="8px">
+                        <RadzenIcon Icon="water"/>
+                        <span>
+                            @(mlWaterLast24Hours.ToString("0.##")) ml  
+                        </span>
+                    </RadzenStack>
+                }
+                @if (_growBoxRoot.LightSchedule.SunScheduleEnabled)
                 {
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_rise.ToString(@"hh\:mm\:ss")</RadzenText>
@@ -70,31 +89,33 @@
 @code
 {
     private AppGrowBox? _appGrowBox;
-    private GrowBoxEspRoot? _root;
+    private GrowBoxEspRoot? _growBoxRoot;
+    private WaterPumpsEspRoot? _waterPumpsRoot;
     private GrowBoxChart? _chart;
-    
+
     private readonly List<IDisposable> _subscriptions = new();
 
     TimeSpan _rise = TimeSpan.Zero;
     TimeSpan _sunDuration = TimeSpan.Zero;
     TimeSpan _set = TimeSpan.Zero;
-    
+    private IWaterPumpsEsp? _waterPumpsEsp;
+
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
-    
+
     protected override async Task OnParametersSetAsync()
     {
         if (_appGrowBox is not null)
             await _appGrowBox.Service.Stop();
         _appGrowBox = null;
-        _root = null;
+        _growBoxRoot = null;
         _subscriptions.ForEach(x => x.Dispose());
         _subscriptions.Clear();
-        
+
         if (GrowBoxId == Guid.Empty)
         {
             return;
         }
-        
+
         IDisposable idSub = default!;
         idSub = App.AppState.Subscribe(appState =>
         {
@@ -102,15 +123,9 @@
             if (_appGrowBox is null)
                 return;
             _subscriptions.Add(
-                _appGrowBox.Service.GrowBoxRoot.Subscribe(root => {
-                    _root = root;
-                    var rise = _root?.LightSchedule?.Sunrise ?? 21600;
-                    var set = rise + (_root?.LightSchedule?.SunDuration ?? 64800);
-                    _rise = TimeSpan.FromSeconds(rise);
-                    _set = TimeSpan.FromSeconds(set);
-                    _sunDuration = _set - _rise;
-                    StateHasChanged();
-                    UpdateChartDataAsync();
+                _appGrowBox.Service.GrowBoxRoot.Subscribe(root =>
+                {
+                    UpdateGrowBoxRootAsync(root);
                 }));
             _appGrowBox.Service.Start();
             // ReSharper disable once AccessToModifiedClosure
@@ -119,7 +134,20 @@
         });
     }
 
-    private async void UpdateChartDataAsync()
+    private async void UpdateGrowBoxRootAsync(GrowBoxEspRoot? root)
+    {
+        _growBoxRoot = root;
+        var rise = _growBoxRoot?.LightSchedule?.Sunrise ?? 21600;
+        var set = rise + (_growBoxRoot?.LightSchedule?.SunDuration ?? 64800);
+        _rise = TimeSpan.FromSeconds(rise);
+        _set = TimeSpan.FromSeconds(set);
+        _sunDuration = _set - _rise;
+        await UpdateChartDataAsync(); 
+        await UpdateWaterPumpsDataAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UpdateChartDataAsync()
     {
         if (_chart is null)
         {
@@ -139,13 +167,25 @@
         }
     }
 
+    private async Task UpdateWaterPumpsDataAsync(WaterPumpsEspRoot? waterPumpsRoot = null)
+    {
+        if (_waterPumpsEsp is null)
+        {
+            if (!string.IsNullOrEmpty(_appGrowBox?.GrowBox.WaterPumpsUrl))
+                _waterPumpsEsp = RestService.For<IWaterPumpsEsp>(_appGrowBox.GrowBox.WaterPumpsUrl);
+            else
+                return;
+        }
+        _waterPumpsRoot = waterPumpsRoot ?? await _waterPumpsEsp.Get();
+    }
+
 
     async ValueTask IAsyncDisposable.DisposeAsync()
     {
         if (_appGrowBox is not null)
             await _appGrowBox.Service.Stop();
 
-        _root = null;
+        _growBoxRoot = null;
         _subscriptions.ForEach(x => x.Dispose());
     }
 }
