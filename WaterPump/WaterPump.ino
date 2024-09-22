@@ -42,7 +42,7 @@ const int pPump2 = D6;
 const int pPump3 = D7;
 const int pPump4 = D0;
 
-#define PUMP_ML_PER_MINUTE 26
+#define PUMP_ML_PER_MINUTE 200
 
 struct Pump
 {

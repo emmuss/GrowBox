@@ -13,6 +13,7 @@
 @inject NavigationManager NavigationManager
 @inject MinimalHttpClient<Abstractions.Model.SensorReadingRequest, Abstractions.Model.SensorReading[]> SensorReadings
 @inject IJSRuntime Js
+@inject ILogger<GrowBoxPage> Logger
 
 @if (_appGrowBox != null && _growBoxRoot != null) 
 {
@@ -176,7 +177,15 @@
             else
                 return;
         }
-        _waterPumpsRoot = waterPumpsRoot ?? await _waterPumpsEsp.Get();
+
+        try
+        {
+            _waterPumpsRoot = waterPumpsRoot ?? await _waterPumpsEsp.Get();
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Unable to get water pumps.");
+        }
     }
 
 
