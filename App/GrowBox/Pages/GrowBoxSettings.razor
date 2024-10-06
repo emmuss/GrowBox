@@ -11,7 +11,7 @@
 @inject IJSRuntime Js
 @inject NavigationManager NavigationManager
 @inject IOverlayService OverlayService
-@inject IWaterPumpsEsp WaterPumpsService
+@inject ILogger<GrowBoxSettings> Logger
 
 @if (_growBoxRoot != null && _appGrowBox != null) 
 {
@@ -175,7 +175,16 @@
             else
                 return;
         }
-        _waterPumpsRoot = waterPumpsRoot ?? await _waterPumpsEsp.Get();
+
+        try
+        {
+            _waterPumpsRoot = waterPumpsRoot ?? await _waterPumpsEsp.Get();
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Unable to reach water pumps.");
+        }
+        
     }
 
     protected override async Task OnParametersSetAsync()
