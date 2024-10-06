@@ -1,3 +1,5 @@
+#name: growbox
+
 volumes:
   growbox-postgres-data:
 

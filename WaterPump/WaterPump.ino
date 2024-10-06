@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <Arduino_JSON.h>
 #include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
@@ -34,6 +35,7 @@ const char* pass = SECRET_PASS;    // your network password
 #define TIME_OFFSET 3600
 
 ESP8266WebServer server(80);
+HTTPClient http;
 // Pins
   const int pBuildinLed = LED_BUILTIN;
 
@@ -61,6 +63,7 @@ struct Context
 {
   time_t timestamp;
   Pump pumps[pumpCount];
+  char telemetryCallback[512];
 };
 
 const int CONTEXT_SIZE = sizeof(Context);
@@ -113,6 +116,7 @@ void contextInit() {
     context.pumps[3].relaisPin = pPump4;
     context.pumps[3].isActive = false;
     context.timestamp = 0;
+    context.telemetryCallback[0] = 0;
     return;
   }
   memcpy(&context, EEPROM.getConstDataPtr() + CONTEXT_MARKER_SIZE, CONTEXT_SIZE);
@@ -125,8 +129,7 @@ void contextSaveChanges() {
   EEPROM.commit();
 }
 
-String pumpToJson(Pump pump)
-{
+String pumpToJson(Pump pump) {
   String result = "{";
     result += "\"id\" : " + String(pump.id);
     result += ", \"autoPumpBegin\" : " + String(pump.autoPumpBegin);
@@ -139,11 +142,16 @@ String pumpToJson(Pump pump)
   return result;
 }
 
-// SERVER I/O ###########################################
-void serverSendContext() {
+String contextToJson() {
     String result = "{";
       result += "\"me\" : \"" + String(hostname) + "\"";
       result += ", \"timestamp\" :" + String(context.timestamp);
+      result += ", \"telemetryCallback\" :";
+      if (context.telemetryCallback[0] == 'h') {
+        result += "\"" + String(context.telemetryCallback) + "\"";
+      }else{
+        result += String("null");
+      }       
       result += ", \"pumpMilliLiterPerMinute\" :" + String(PUMP_ML_PER_MINUTE);
       result += ", \"pumps\" :[";
       for (int i = 0; i < pumpCount; i++)
@@ -154,7 +162,12 @@ void serverSendContext() {
       
       result += "]";
     result += "}";
-    
+    return result;
+}
+
+// SERVER I/O ###########################################
+void serverSendContext() {
+    String result = contextToJson();
     server.sendHeader(String(F("Access-Control-Allow-Private-Network")), String("true"));
     server.send(200, "application/json", result.c_str());
 }
@@ -181,6 +194,7 @@ void serverSendInvalidRequest() {
 void handleGet() {
   serverSendContext();
 }
+
 void handlePumpTest() {
   Serial.println("handlePumpTest"); 
   JSONVar jsonInput;
@@ -288,6 +302,7 @@ void handlePumpSet() {
   }
   serverSendInvalidRequest();
 }
+
 void handlePumpSetAll() {
   Serial.println("handlePumpSetAll"); 
   JSONVar jsonInput;
@@ -325,6 +340,42 @@ void handlePumpSetAll() {
   serverSendContext();
 }
 
+void handleSetTelemetryCallback() {
+  Serial.println("handleSetTelemetryCallback"); 
+  JSONVar jsonInput;
+  if (!serverParseJson(&jsonInput))
+    return;
+
+  String telemetryCallback = "";
+  if (jsonInput.hasOwnProperty("telemetryCallback")) { 
+    telemetryCallback = (String)jsonInput["telemetryCallback"];
+    telemetryCallback.toCharArray(context.telemetryCallback, 512);
+  }
+  
+  contextSaveChanges();
+  serverSendContext();
+}
+
+void sendTelemetry(Pump* pump) {
+  if (context.telemetryCallback[0] != 'h') {
+    return;
+  }
+  Serial.print("Sending telemetry to: ");
+  Serial.println(context.telemetryCallback);
+
+  String telemetry = pumpToJson(*pump);
+
+  WiFiClient client;
+  HTTPClient http;
+  http.begin(client, context.telemetryCallback);
+  http.addHeader("Content-Type", "application/json");
+  int httpResponseCode = http.POST(telemetry.c_str());
+  Serial.print("Telemetry response: ");
+  Serial.println(httpResponseCode);
+  // Free resources
+  http.end();
+} 
+
 void handleNotFound() {
   if (server.method() == HTTP_OPTIONS)
   {
@@ -352,6 +403,7 @@ void configureRoutes() {
   server.enableCORS(true);
   
   server.on("/get", handleGet);
+  server.on("/telemetry/callback", HTTP_POST, handleSetTelemetryCallback);
   server.on("/pump/set", HTTP_POST, handlePumpSet);
   server.on("/pump/set/all", HTTP_POST, handlePumpSetAll);
   server.on("/pump/test", HTTP_POST, handlePumpTest);
@@ -367,10 +419,13 @@ void pumpDoStart(Pump* pump) {
   pump->isActive = true;
   pump->lastRun = now;
   pump->lastRunDuration = pump->duration;
-  pumpWrite(pump);
+  pumpWrite(pump, true);
 }
 
-void pumpWrite(Pump* pump) {
+void pumpWrite(Pump* pump, bool withTelemetry) {
+  if (withTelemetry) {
+    sendTelemetry(pump);
+  }
   if (pump->isActive) {
     digitalWrite(pump->relaisPin, LOW);
   } else {
@@ -380,7 +435,7 @@ void pumpWrite(Pump* pump) {
 
 void pumpDoStop(Pump* pump) {
   pump->isActive = false;
-  pumpWrite(pump);
+  pumpWrite(pump, true);
 }
 
 void pumpSchedule(Pump* pump) {
@@ -497,9 +552,8 @@ void setup() {
 
   for (int i = 0; i < pumpCount; i++)
   {
-
     pinMode(context.pumps[i].relaisPin, OUTPUT);
-    pumpWrite(&context.pumps[i]);
+    pumpWrite(&context.pumps[i], false);
   }
   
   // connect wifi

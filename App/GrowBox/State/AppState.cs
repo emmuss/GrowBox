@@ -10,3 +10,4 @@ public record AppState(bool IsStartup, AppGrowBox[] GrowBoxes)
         IsStartup: true,
         GrowBoxes: Array.Empty<AppGrowBox>());
 };
+
