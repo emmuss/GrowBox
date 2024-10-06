@@ -37,11 +37,12 @@
             <RadzenStack Gap="1rem">
                 <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
                     <RadzenIcon Icon="brightness_low" /> 
-                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Light</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Light @_lightStepTextMap[_lightStep]</RadzenText>
                 </div>
                 <RadzenSlider
-                    TValue="int" style="width: 100%;" Step="19" Min="-190" Max="0"
-                    @bind-Value=_light />
+                    TValue="int" style="width: 100%;" Step="1" Min="0" Max="4"
+                    
+                    @bind-Value=_lightStep />
                 <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
                     <RadzenIcon Icon="schedule"/>
                     <RadzenCheckBox
@@ -137,7 +138,9 @@
     private IEnumerable<int> _riseAndSet = new int[] { 21600, 21600 + 64800 };
     private IEnumerable<int> RiseAndSet { get => _riseAndSet; set => SetRiseAndSet(value); }
     private int _fanSpeed = 0;
-    private int _light = 0;
+    private int _lightStep = 0;
+    private readonly List<int> _lightStepMap = [254, 154, 103, 60, 1];
+    private readonly List<string> _lightStepTextMap = ["Off", "40%", "60%", "80%", "100%"];
     private void SetRiseAndSet(IEnumerable<int> values)
     {
         var riseAndSet = values as int[] ?? values.ToArray();
@@ -155,8 +158,9 @@
             return;
         _growBoxRoot = growBoxRoot ?? await _appGrowBox.Service.GrowBoxEsp.Get();
         _fanSpeed = 255 - _growBoxRoot?.FanSpeed ?? 0;
-        var light = (_growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false) ? _growBoxRoot.LightSchedule.SunTargetLight : (_growBoxRoot?.Light ?? 255);
-        _light = ((light) - 40)*-1;
+        var light = (_growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false) ? _growBoxRoot.LightSchedule.SunTargetLight : (_growBoxRoot?.Light ?? 103);
+        var lidx = _lightStepMap.IndexOf(light);
+        _lightStep = lidx == -1 ? 0 : lidx;
         var rise = _growBoxRoot?.LightSchedule?.Sunrise ?? 21600;
         var set = rise + (_growBoxRoot?.LightSchedule?.SunDuration ?? 64800);
         RiseAndSet = [rise, set];
@@ -191,11 +195,9 @@
     {
         if (_appGrowBox is null)
             return;
-        var val = _light;
-        var s = (val*-1 + 40);
-        s = s > 255 ? 255 : s;
-        s = s < 0   ? 0   : s;
 
+        var s = _lightStepMap[_lightStep];
+        
         if (_sunScheduleEnabled)
         {
             await UpdateGrowBoxData(
