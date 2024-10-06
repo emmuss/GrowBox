@@ -38,20 +38,24 @@
                 </RadzenStack>
                 @if (_waterPumpsRoot != null)
                 {
-                    var pumpsActiveLast24Hrs = _waterPumpsRoot.Pumps
-                        .Select(x => (LastRun: DateTime.UnixEpoch.AddSeconds(x.LastRun), Pump: x))
-                        .Where(x => x.LastRun > DateTime.Now.AddDays(-1)).ToArray();
+                    @foreach (var waterPump in _waterPumpsRoot.Pumps)
+                    {
+                        if (waterPump.AutoPumpBegin == -1)
+                            continue;
 
-                    var lastActivePumpCount = pumpsActiveLast24Hrs.Length;
-                    var mlWaterLast24Hours = pumpsActiveLast24Hrs.Sum(x => 
-                        _waterPumpsRoot.PumpMilliLiterPerMinute * TimeSpan.FromSeconds(x.Pump.Duration).TotalMinutes);
+                        var pumpActivityInSeconds = GetWaterPumpActivity(waterPump.Id);
+                        var mlPumped = _waterPumpsRoot!.PumpMilliLiterPerMinute * TimeSpan.FromSeconds(pumpActivityInSeconds).TotalMinutes;
+                        var css = mlPumped <= 0 ? "rz-color-danger" : "";
                         
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="8px">
-                        <RadzenIcon Icon="water"/>
-                        <span>
-                            @(mlWaterLast24Hours.ToString("0.##")) ml  
-                        </span>
-                    </RadzenStack>
+                        
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="8px">
+                            <span class="@css"> Pump @waterPump.Id </span>
+                            <RadzenIcon Icon="water" class="@css" IconStyle="IconStyle.Danger" />
+                            <span class="@css">
+                                @(mlPumped.ToString("0.##")) ml
+                            </span>
+                        </RadzenStack>
+                    } 
                 }
                 @if (_growBoxRoot.LightSchedule.SunScheduleEnabled)
                 {
@@ -92,6 +96,7 @@
     private AppGrowBox? _appGrowBox;
     private GrowBoxEspRoot? _growBoxRoot;
     private WaterPumpsEspRoot? _waterPumpsRoot;
+    private Abstractions.Model.SensorReading[] _sensorReadings = Array.Empty<Abstractions.Model.SensorReading>();
     private GrowBoxChart? _chart;
 
     private readonly List<IDisposable> _subscriptions = new();
@@ -124,15 +129,43 @@
             if (_appGrowBox is null)
                 return;
             _subscriptions.Add(
-                _appGrowBox.Service.GrowBoxRoot.Subscribe(root =>
-                {
-                    UpdateGrowBoxRootAsync(root);
-                }));
+                _appGrowBox.Service.GrowBoxRoot.Subscribe(root => { UpdateGrowBoxRootAsync(root); }));
             _appGrowBox.Service.Start();
             // ReSharper disable once AccessToModifiedClosure
             // we want to dispose ourself after init.
             idSub.Dispose();
         });
+    }
+
+    private double GetWaterPumpActivity(int pumpId)
+    {
+        var pumpType = $"wp{pumpId}_active";
+        double activity = 0;
+        var readings = _sensorReadings
+            .Where(x => x.Type == pumpType)
+            .OrderBy(x => x.Created)
+            .ToArray();
+
+        DateTime? lastActive = null;
+        foreach (Abstractions.Model.SensorReading reading in readings)
+        {
+            if (Math.Abs(reading.Value - 1) < 0.001)
+            {
+                lastActive = reading.Created;
+            }
+            else if (lastActive != null)
+            {
+                activity += (reading.Created - lastActive.Value).TotalSeconds;
+                lastActive = null;
+            }
+        }
+
+        if (lastActive != null)
+        {
+            activity += (DateTime.UtcNow - lastActive.Value).TotalSeconds;
+        }
+
+        return activity;
     }
 
     private async void UpdateGrowBoxRootAsync(GrowBoxEspRoot? root)
@@ -143,8 +176,8 @@
         _rise = TimeSpan.FromSeconds(rise);
         _set = TimeSpan.FromSeconds(set);
         _sunDuration = _set - _rise;
-        await UpdateChartDataAsync(); 
         await UpdateWaterPumpsDataAsync();
+        await UpdateChartDataAsync(); 
         await InvokeAsync(StateHasChanged);
     }
 
@@ -157,8 +190,15 @@
 
         try
         {
+            List<string> types = ["temperature", "pressure", "light", "humidity"];
+            if (_waterPumpsRoot is not null)
+            {
+                types.AddRange(
+                    _waterPumpsRoot.Pumps.Select(x => $"wp{x.Id}_active"));
+            }
+            
             var sensorReadings = await SensorReadings.Get(new Abstractions.Model.SensorReadingRequest(
-                ["temperature", "pressure", "light", "humidity"],
+                types.ToArray(),
                 GrowBoxId, DateTime.UtcNow - TimeSpan.FromDays(1), null));
             await _chart.UpdateChart(sensorReadings?.OrderBy(x => x.Created).ToArray());
         }
