@@ -200,6 +200,7 @@
             var sensorReadings = await SensorReadings.Get(new Abstractions.Model.SensorReadingRequest(
                 types.ToArray(),
                 GrowBoxId, DateTime.UtcNow - TimeSpan.FromDays(1), null));
+            _sensorReadings = sensorReadings ?? [];
             await _chart.UpdateChart(sensorReadings?.OrderBy(x => x.Created).ToArray());
         }
         catch (Exception e)
