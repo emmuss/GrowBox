@@ -26,7 +26,7 @@ public static class IHostExtension
 
         await dbContext.Database.EnsureCreatedAsync();
         
-        await dbContext.Database.MigrateAsync();
+        //await dbContext.Database.MigrateAsync();
 
         // if (!dbContext.GrowBoxes.Any())
         // {

@@ -1,0 +1,113 @@
+﻿@using GrowBox.Abstractions.Model.EspApi
+@using GrowBox.Controls.Overlay
+@using GrowBox.Controls.Overlays
+@using GrowBox.Services
+@using Refit
+
+@inject IOverlayService OverlayService
+@inject ILogger<WaterPumpsSettings> Logger
+
+@if (_waterPumpsRoot != null)
+{
+    <RadzenCard Variant="Variant.Filled">
+        <RadzenStack Gap="1rem">
+            <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                <div>
+                    <RadzenIcon Icon="water"/>
+                </div>
+                <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">Pumps</RadzenText>
+            </div>
+
+            <div>
+                <span> @_waterPumpsRoot.PumpMilliLiterPerMinute ml / min Pump Volume</span>
+            </div>
+            @foreach (var pump in _waterPumpsRoot.Pumps)
+            {
+                <RadzenCard Variant="Variant.Outlined">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">Pump @pump.Id</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">@pump.LastRun.ToDateFromUnixSeconds()</RadzenText>
+                    </div>
+                    <RadzenStack Gap="1rem" Style="margin-left: 1rem">
+                        <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                            <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">@(_waterPumpsRoot.PumpMilliLiterPerMinute * TimeSpan.FromSeconds(pump.Duration).TotalMinutes) ml</RadzenText>
+                            <RadzenSlider @bind-Value=@pump.Duration TValue="int" style="width: 100%;" Step="60" Min="0" Max="@PumpMaximumSeconds"/>
+                            <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Danger" Click="async () => await TestPump(pump)"/>
+                        </div>
+                        <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                            <RadzenIcon Icon="schedule"/>
+                            <RadzenCheckBox
+                                @bind-Value:get="(pump.AutoPumpBegin > -1)"
+                                @bind-Value:set="(x) => pump.AutoPumpBegin = x ? 16200 : -1"
+                                TValue="bool"/>
+                            @if (pump.AutoPumpBegin > -1)
+                            {
+                                <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">
+                                    @TimeSpan.FromSeconds(pump.AutoPumpBegin)
+                                </RadzenText>
+                                <RadzenSlider @bind-Value=@pump.AutoPumpBegin TValue="int" style="width: 100%;" Step="@((30 * 60).ToString())" Min="-1" Max="@(60 * 60 * 24)"/>
+                            }
+                        </div>
+                    </RadzenStack>
+                </RadzenCard>
+            }
+            <RadzenButton Text="Set Pumps" ButtonStyle="ButtonStyle.Success" Click="UpdatePumps"/>
+        </RadzenStack>
+    </RadzenCard>
+}
+
+@code {
+    private WaterPumpsEspRoot? _waterPumpsRoot;
+    private IWaterPumpsEsp? _waterPumpsEsp;
+    private int PumpMaximumSeconds => (int)TimeSpan.FromMinutes(3000d / _waterPumpsRoot?.PumpMilliLiterPerMinute ?? 1).TotalSeconds;
+
+    [Parameter, EditorRequired]
+    public string? WaterPumpsUrl { get; set; }
+    
+    protected override async Task OnParametersSetAsync()
+    {
+        await UpdateWaterPumpsData();
+    }
+    
+    private async Task UpdatePumps()
+    {
+        if (_waterPumpsEsp is null) return;
+        WaterPumpsEspRoot? last = null;
+        foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
+        {
+            last = await _waterPumpsEsp.Set(pump);
+        }
+        
+        if (last is not null) await UpdateWaterPumpsData(last);
+    }
+    private async Task TestPump(WaterPump pump)
+    {
+        if (_waterPumpsEsp is null) return;
+
+        var confirm = await OverlayService.ConfirmWaterPumpTest(pump);
+        if (!confirm)
+            return;
+        
+        var result = await _waterPumpsEsp.Test(pump);
+    }
+    private async Task UpdateWaterPumpsData(WaterPumpsEspRoot? waterPumpsRoot = null)
+    {
+        if (_waterPumpsEsp is null)
+        {
+            if (!string.IsNullOrEmpty(WaterPumpsUrl))
+                _waterPumpsEsp = RestService.For<IWaterPumpsEsp>(WaterPumpsUrl);
+            else
+                return;
+        }
+
+        try
+        {
+            _waterPumpsRoot = waterPumpsRoot ?? await _waterPumpsEsp.Get();
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, $"Unable to reach water pumps at {WaterPumpsUrl}.");
+        }
+        
+    }
+}

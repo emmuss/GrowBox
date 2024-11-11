@@ -29,10 +29,8 @@ const char* pass = SECRET_PASS;    // your network password
 
 // Timezone rule / NTP Servers
 //const char* time_zone = "CET-1CEST,M3.5.0,M10.5.0/3"; // (Berlin)
-#define TIME_API "https://worldtimeapi.org/api/ip"
 #define NTP_SERVERS "0.de.pool.ntp.org", "1.de.pool.ntp.org", "2.de.pool.ntp.org"
 #define NTP_MIN_VALID_EPOCH 1533081600
-#define TIME_OFFSET 3600
 
 ESP8266WebServer server(80);
 HTTPClient http;
@@ -483,7 +481,7 @@ void pumpSchedule(Pump* pump) {
 
 void initNtp() {
   time_t n;
-  configTime(TIME_OFFSET, 0, NTP_SERVERS);
+  configTime(0, 0, NTP_SERVERS);
   Serial.print("Wait for valid ntp response.");
   while((n = time(nullptr)) < NTP_MIN_VALID_EPOCH) {
     blink(500);
