@@ -23,22 +23,4 @@ public static class OverlayExtensions
         var result = await service.ShowOverlay<ConfirmOverlay, Confirm>(confirm);
         return result.Success;
     }
-    
-    public static async Task<bool> ConfirmWaterPumpTest(this IOverlayService service, WaterPump pump)
-    {
-        Confirm confirm = new()
-        {
-            Caption = $"WaterPump {pump.Id} Test",
-            Message = $"Are you sure you want to Test Water Pump {pump.Id} for {TimeSpan.FromSeconds(pump.Duration)} ?",
-            FailButtonStyle = ButtonStyle.Light,
-            FailText = "Cancel",
-            FailIcon = "",
-            SuccessIcon = "water",
-            SuccessText = "Test",
-            SuccessButtonStyle = ButtonStyle.Danger,
-        };
-
-        var result = await service.ShowOverlay<ConfirmOverlay, Confirm>(confirm);
-        return result.Success;
-    }
 }

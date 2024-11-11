@@ -5,13 +5,14 @@
 @using Refit
 
 @inject IOverlayService OverlayService
+@inject NotificationService NotificationService
 @inject ILogger<WaterPumpsSettings> Logger
 
 @if (_waterPumpsRoot != null)
 {
     <RadzenCard Variant="Variant.Filled">
         <RadzenStack Gap="1rem">
-            <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+            <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
                 <div>
                     <RadzenIcon Icon="water"/>
                 </div>
@@ -24,30 +25,30 @@
             @foreach (var pump in _waterPumpsRoot.Pumps)
             {
                 <RadzenCard Variant="Variant.Outlined">
-                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                        <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">Pump @pump.Id</RadzenText>
-                        <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">@pump.LastRun.ToDateFromUnixSeconds()</RadzenText>
-                    </div>
-                    <RadzenStack Gap="1rem" Style="margin-left: 1rem">
-                        <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                    <RadzenStack Gap="1rem">
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px">
+                            <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">Pump @pump.Id</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Start" style="margin-bottom: 0;">@pump.LastRun.ToDateFromUnixSeconds()</RadzenText>
+                        </div>
+                        <RadzenSwitch
+                            @bind-Value:get="(pump.AutoPumpBegin > -1)"
+                            @bind-Value:set="(x) => pump.AutoPumpBegin = x ? 16200 : -1"
+                            InputAttributes="@(new Dictionary<string,object>(){ { "aria-label", "Toggle Waterpump schedule" }})" />
+                        <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
+                            <RadzenSlider @bind-Value=@pump.Duration TValue="int" style="width: 100%; margin-left: 10px; margin-right: 16px" Step="60" Min="0" Max="@PumpMaximumSeconds"/>
                             <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">@(_waterPumpsRoot.PumpMilliLiterPerMinute * TimeSpan.FromSeconds(pump.Duration).TotalMinutes) ml</RadzenText>
-                            <RadzenSlider @bind-Value=@pump.Duration TValue="int" style="width: 100%;" Step="60" Min="0" Max="@PumpMaximumSeconds"/>
-                            <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Danger" Click="async () => await TestPump(pump)"/>
+                            <RadzenButton Icon="labs" ButtonStyle="ButtonStyle.Danger" Click="async () => await TestPump(pump)"/>
                         </div>
-                        <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
-                            <RadzenIcon Icon="schedule"/>
-                            <RadzenCheckBox
-                                @bind-Value:get="(pump.AutoPumpBegin > -1)"
-                                @bind-Value:set="(x) => pump.AutoPumpBegin = x ? 16200 : -1"
-                                TValue="bool"/>
-                            @if (pump.AutoPumpBegin > -1)
-                            {
-                                <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">
-                                    @TimeSpan.FromSeconds(pump.AutoPumpBegin)
-                                </RadzenText>
-                                <RadzenSlider @bind-Value=@pump.AutoPumpBegin TValue="int" style="width: 100%;" Step="@((30 * 60).ToString())" Min="-1" Max="@(60 * 60 * 24)"/>
-                            }
-                        </div>
+                        @if (pump.AutoPumpBegin > -1)
+                        {
+                            <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
+                                    <RadzenIcon Icon="schedule"/>
+                                    <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">
+                                        @TimeSpan.FromSeconds(pump.AutoPumpBegin)
+                                    </RadzenText>
+                                    <RadzenSlider @bind-Value=@pump.AutoPumpBegin TValue="int" style="width: 100%;" Step="@((30 * 60).ToString())" Min="-1" Max="@(60 * 60 * 24)"/>
+                            </div>
+                        }
                     </RadzenStack>
                 </RadzenCard>
             }
@@ -73,22 +74,90 @@
     {
         if (_waterPumpsEsp is null) return;
         WaterPumpsEspRoot? last = null;
-        foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
+
+        try
         {
-            last = await _waterPumpsEsp.Set(pump);
+            foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
+            {
+                last = await _waterPumpsEsp.Set(pump);
+            }
+
+            if (last is not null)
+            {
+                await UpdateWaterPumpsData(last);
+            }
+            
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = $"Waterpumps update",
+                Detail = "Success.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
         }
-        
-        if (last is not null) await UpdateWaterPumpsData(last);
+        catch (Exception e)
+        {
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Waterpumps update",
+                Detail = "Failed.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+            Logger.LogError(e, $"Updating Pumps failed.");
+        }
+    }
+    private async Task<bool> ConfirmWaterPumpTest(WaterPump pump)
+    {
+        Confirm confirm = new()
+        {
+            Caption = $"WaterPump {pump.Id} Identification",
+            Message = $"Are you sure you want to identify Water Pump {pump.Id}?",
+            FailButtonStyle = ButtonStyle.Light,
+            FailText = "Cancel",
+            FailIcon = "",
+            SuccessIcon = "labs",
+            SuccessText = "Identify",
+            SuccessButtonStyle = ButtonStyle.Danger,
+        };
+
+        var result = await OverlayService.ShowOverlay<ConfirmOverlay, Confirm>(confirm);
+        return result.Success;
     }
     private async Task TestPump(WaterPump pump)
     {
         if (_waterPumpsEsp is null) return;
 
-        var confirm = await OverlayService.ConfirmWaterPumpTest(pump);
+        var confirm = await ConfirmWaterPumpTest(pump);
         if (!confirm)
             return;
+
+        try
+        {
+            var result = await _waterPumpsEsp.Test(pump with { Duration = 3 });
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = $"Waterpump {pump.Id} Identification",
+                Detail = "Success.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+        }
+        catch (Exception e)
+        {
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Waterpump {pump.Id} Identification",
+                Detail = "Failed. Message: " + e.Message,
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+        }
         
-        var result = await _waterPumpsEsp.Test(pump);
     }
     private async Task UpdateWaterPumpsData(WaterPumpsEspRoot? waterPumpsRoot = null)
     {
@@ -106,6 +175,14 @@
         }
         catch (Exception e)
         {
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Waterpumps",
+                Detail = "Can't connect to Waterpumps at " + WaterPumpsUrl + " Message: " + e.Message,
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
             Logger.LogError(e, $"Unable to reach water pumps at {WaterPumpsUrl}.");
         }
         

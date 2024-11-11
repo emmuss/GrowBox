@@ -9,6 +9,7 @@
 @inject App App
 @inject IJSRuntime Js
 @inject NavigationManager NavigationManager
+@inject NotificationService NotificationService
 @inject IOverlayService OverlayService
 @inject ILogger<GrowBoxSettings> Logger
 
@@ -21,7 +22,7 @@
         </RadzenStack>
         <RadzenCard Variant="Variant.Filled">
             <RadzenStack Gap="1rem">
-                <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
                     <RadzenIcon Icon="tune" /> 
                     <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Fan Speed</RadzenText>
                 </div>
@@ -34,7 +35,7 @@
 
         <RadzenCard Variant="Variant.Filled">
             <RadzenStack Gap="1rem">
-                <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
                     <RadzenIcon Icon="brightness_low" /> 
                     <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">Light @_lightStepTextMap[_lightStep]</RadzenText>
                 </div>
@@ -42,7 +43,7 @@
                     TValue="int" style="width: 100%;" Step="1" Min="0" Max="4"
                     
                     @bind-Value=_lightStep />
-                <div style="display: flex; justify-content: start; align-items: center; gap: 8px;">
+                <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
                     <RadzenIcon Icon="schedule"/>
                     <RadzenCheckBox
                         TValue="bool" Name="_sunScheduleEnabled"
@@ -136,25 +137,74 @@
             return;
 
         var s = _lightStepMap[_lightStep];
-        
-        if (_sunScheduleEnabled)
+
+        try
         {
-            await UpdateGrowBoxData(
-                await _appGrowBox.Service.GrowBoxEsp.SetLightSchedule(
-                    new (_sunScheduleEnabled, RiseAndSet.First(), RiseAndSet.Last() - RiseAndSet.First(), s)));
+            if (_sunScheduleEnabled)
+            {
+                await UpdateGrowBoxData(
+                    await _appGrowBox.Service.GrowBoxEsp.SetLightSchedule(
+                        new (_sunScheduleEnabled, RiseAndSet.First(), RiseAndSet.Last() - RiseAndSet.First(), s)));
+            }
+            else
+            {
+                await UpdateGrowBoxData(
+                    await _appGrowBox.Service.GrowBoxEsp.SetLight(new(s)));
+            }
+            
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = $"Light update",
+                Detail = "Success.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
         }
-        else
+        catch (Exception e)
         {
-            await UpdateGrowBoxData(
-                await _appGrowBox.Service.GrowBoxEsp.SetLight(new(s)));
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Light update",
+                Detail = "Failed.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+            Logger.LogError(e, "Update light failed.");
         }
     }
     private async Task UpdateFanSpeed()
     {
         if (_appGrowBox is null)
             return;
-        await UpdateGrowBoxData(
-            await _appGrowBox.Service.GrowBoxEsp.SetFanSpeed(new (255 - _fanSpeed)));
+
+        try
+        {
+            await UpdateGrowBoxData(
+                await _appGrowBox.Service.GrowBoxEsp.SetFanSpeed(new (255 - _fanSpeed)));
+            
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = $"Fan speed update",
+                Detail = "Success.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+        }
+        catch (Exception e)
+        {
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Fan speed update",
+                Detail = "Success.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+            Logger.LogError(e, "Unable to update fan speed.");
+        }
     }
     private async Task DeleteGrowBox()
     {

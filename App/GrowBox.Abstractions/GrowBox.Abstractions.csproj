@@ -9,7 +9,7 @@
     <ItemGroup>
       <PackageReference Include="Blazor.MinimalApi.Abstractions" Version="8.0.1" />
       <PackageReference Include="Bogus" Version="35.5.0" />
-      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.2" />
+      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.10" />
     </ItemGroup>
 
 </Project>

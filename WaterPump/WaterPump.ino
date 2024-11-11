@@ -203,30 +203,27 @@ void handlePumpTest() {
     serverSendInvalidRequest();
     return;
   }
-
   int pumpId = (int)jsonInput["id"];
   if (pumpId < 0 || pumpId >= pumpCount) {
     serverSendInvalidRequest();
     return;
   }
-
-  Pump* pump = &context.pumps[pumpId];
-  bool scheduleChanged = false;   
-  if (jsonInput.hasOwnProperty("duration")) { 
-    pump->duration = (int)jsonInput["duration"];
-    Serial.print("duration set to ");
-    Serial.println(pump->duration);
-    scheduleChanged = true;
-  }
-
-  if (scheduleChanged) {
-    pumpDoStart(pump);
-    delay(pump->duration * 1000);
-    pumpDoStop(pump);
-    serverSendContext();
+  if (!jsonInput.hasOwnProperty("duration")) { 
+    serverSendInvalidRequest();
     return;
   }
-  serverSendInvalidRequest();
+  int duration = (int)jsonInput["duration"];
+  if (duration <= 0  || duration >= 60 * 30) {
+    serverSendInvalidRequest();
+    return;
+  }
+
+  Pump* pump = &context.pumps[pumpId];
+  digitalWrite(pump->relaisPin, LOW);
+  delay(duration * 1000);
+  digitalWrite(pump->relaisPin, HIGH);
+  serverSendContext();
+  return;
 }
 
 void handlePumpTestAll() {
