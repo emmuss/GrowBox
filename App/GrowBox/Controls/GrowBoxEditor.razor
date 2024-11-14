@@ -10,7 +10,7 @@
 @inject ILogger<GrowBoxEditor> Logger
 @inject NotificationService NotificationService
 
-<RadzenTemplateForm TItem="GrowBox" Data="@GrowBox" Submit="@Submit">
+<RadzenTemplateForm TItem="GrowBoxModel" Data="@GrowBox" Submit="@Submit">
 <RadzenStack>
     <RadzenCard class="card">
         <RadzenText TextStyle="TextStyle.Subtitle1"> GrowBox </RadzenText>
@@ -89,9 +89,9 @@
 
 @code
 {
-    [Parameter] [EditorRequired] public EventCallback<GrowBox> Submit { get; set; }
+    [Parameter] [EditorRequired] public EventCallback<GrowBoxModel> Submit { get; set; }
 
-    [Parameter] [EditorRequired] public GrowBox GrowBox { get; set; } = default!;
+    [Parameter] [EditorRequired] public GrowBoxModel GrowBox { get; set; } = default!;
     
     private async Task TestGrowBoxConnection()
     {

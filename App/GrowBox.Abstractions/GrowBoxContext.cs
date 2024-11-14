@@ -15,7 +15,7 @@ public class DateTimeToDateTimeUtcN()
 
 public class GrowBoxContext(DbContextOptions<GrowBoxContext> options) : DbContext(options: options)
 {
-    public DbSet<Model.GrowBox> GrowBoxes { get; set; } = default!;
+    public DbSet<Model.GrowBoxModel> GrowBoxes { get; set; } = default!;
     public DbSet<SensorReading> SensorReadings { get; set; } = default!;
 
     public DbSet<Grow> Grows { get; set; } = default!;
@@ -41,12 +41,12 @@ public class GrowBoxContext(DbContextOptions<GrowBoxContext> options) : DbContex
     protected override void OnModelCreating(ModelBuilder mb)
     {
         mb.Entity<SensorReading>()
-            .HasOne<Model.GrowBox>()
+            .HasOne<Model.GrowBoxModel>()
             .WithMany()
             .HasForeignKey(x => x.GrowBoxId);
 
         mb.Entity<Grow>()
-            .HasOne<Model.GrowBox>()
+            .HasOne<Model.GrowBoxModel>()
             .WithMany()
             .HasForeignKey(x => x.GrowBoxId);
         

@@ -16,13 +16,13 @@
             <RadzenText Text="@OverlayData?.Message" TextStyle="TextStyle.Body1" Style="margin: 1rem;"/>
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceAround" Gap="0.5rem">
                 <RadzenButton Click="@Succeed"
-                              Text="@OverlayData.SuccessText"
-                              Icon="@OverlayData.SuccessIcon"
-                              ButtonStyle="@OverlayData.SuccessButtonStyle"/>
+                              Text="@OverlayData?.SuccessText"
+                              Icon="@OverlayData?.SuccessIcon"
+                              ButtonStyle="@(OverlayData?.SuccessButtonStyle ?? ButtonStyle.Base)"/>
                 <RadzenButton Click="@(() => { OverlayData = null; Fail(); })"
-                              Text="@OverlayData.FailText"
-                              Icon="@OverlayData.FailIcon"
-                              ButtonStyle="@OverlayData.FailButtonStyle"/>
+                              Text="@OverlayData?.FailText"
+                              Icon="@OverlayData?.FailIcon"
+                              ButtonStyle="@(OverlayData?.FailButtonStyle ?? ButtonStyle.Base)"/>
             </RadzenStack>
         </RadzenStack>
     </RadzenCard>

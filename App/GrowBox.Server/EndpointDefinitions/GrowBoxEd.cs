@@ -1,8 +1,7 @@
 ﻿using GrowBox.Abstractions;
+using GrowBox.Abstractions.Model;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-
-using GrowBoxModel = GrowBox.Abstractions.Model.GrowBox;
 
 namespace GrowBox.Server.EndpointDefinitions;
 

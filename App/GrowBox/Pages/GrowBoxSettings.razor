@@ -3,8 +3,12 @@
 @using GrowBox.Controls.Overlay
 @using GrowBox.Controls.Overlays
 @using GrowBox.Pages.WaterPump
+@using GrowBox.Services
+@using Refit
 
 @page "/growbox/{GrowBoxId:guid}/settings"
+
+@inherits GrowBox.Controls.ReactiveComponent
 
 @inject App App
 @inject IJSRuntime Js
@@ -13,12 +17,12 @@
 @inject IOverlayService OverlayService
 @inject ILogger<GrowBoxSettings> Logger
 
-@if (_growBoxRoot != null && _appGrowBox != null) 
+@if (_growBoxRoot != null && _growBox != null) 
 {
     <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Dark" Click=@(() => Js.InvokeVoidAsync("history.back")) />
-            <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/edit")) />
+            <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_growBox.Id}/edit")) />
         </RadzenStack>
         <RadzenCard Variant="Variant.Filled">
             <RadzenStack Gap="1rem">
@@ -70,7 +74,7 @@
             </RadzenStack>
         </RadzenCard>
         
-        <WaterPumpsSettings WaterPumpsUrl="@(_appGrowBox.GrowBox.WaterPumpsUrl)" />
+        <WaterPumpsSettings WaterPumpsUrl="@(_growBox.WaterPumpsUrl)" />
 
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
             <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Click=@(async () => { await DeleteGrowBox(); } ) />
@@ -81,8 +85,9 @@
 
 @code
 {
-    private AppGrowBox? _appGrowBox;
+    private Abstractions.Model.GrowBoxModel? _growBox;
     private GrowBoxEspRoot? _growBoxRoot;
+    private IGrowBoxEsp? _growBoxService;
     private bool _sunScheduleEnabled = false;
     private TimeSpan _rise = TimeSpan.Zero;
     private TimeSpan _sunDuration = TimeSpan.Zero;
@@ -104,11 +109,23 @@
 
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
 
-    private async Task UpdateGrowBoxData(GrowBoxEspRoot? growBoxRoot = null)
+    protected override void OnInitialized()
     {
-        if (_appGrowBox is null)
-            return;
-        _growBoxRoot = growBoxRoot ?? await _appGrowBox.Service.GrowBoxEsp.Get();
+        base.OnInitialized();
+        ObserveParameter(() => GrowBoxId)
+            .Where(x => x != Guid.Empty)
+            .Select(App.GetAppGrowBox)
+            .Do(x => _growBox = x.GrowBox)
+            .Do(x => _growBoxService = RestService.For<IGrowBoxEsp>(x.GrowBox.GrowBoxUrl))
+            .Select(_ => _growBoxService)
+            .Select(x => x!.Get())
+            .Switch()
+            .Subscribe(UpdateGrowBoxData);
+    }
+
+    private void UpdateGrowBoxData(GrowBoxEspRoot? growBoxRoot)
+    {
+        _growBoxRoot = growBoxRoot;
         _fanSpeed = 255 - _growBoxRoot?.FanSpeed ?? 0;
         var light = (_growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false) ? _growBoxRoot.LightSchedule.SunTargetLight : (_growBoxRoot?.Light ?? 103);
         var lidx = _lightStepMap.IndexOf(light);
@@ -117,23 +134,12 @@
         var set = rise + (_growBoxRoot?.LightSchedule?.SunDuration ?? 64800);
         RiseAndSet = [rise, set];
         _sunScheduleEnabled = _growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false;
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (GrowBoxId == Guid.Empty)
-        {
-            return;
-        }
-
-        _appGrowBox = App.GetAppGrowBox(GrowBoxId);
-        await UpdateGrowBoxData();
-        await InvokeAsync(StateHasChanged);
+        StateHasChanged();
     }
 
     private async Task UpdateLight()
     {
-        if (_appGrowBox is null)
+        if (_growBoxService is null)
             return;
 
         var s = _lightStepMap[_lightStep];
@@ -142,14 +148,14 @@
         {
             if (_sunScheduleEnabled)
             {
-                await UpdateGrowBoxData(
-                    await _appGrowBox.Service.GrowBoxEsp.SetLightSchedule(
+                UpdateGrowBoxData(
+                    await _growBoxService.SetLightSchedule(
                         new (_sunScheduleEnabled, RiseAndSet.First(), RiseAndSet.Last() - RiseAndSet.First(), s)));
             }
             else
             {
-                await UpdateGrowBoxData(
-                    await _appGrowBox.Service.GrowBoxEsp.SetLight(new(s)));
+                UpdateGrowBoxData(
+                    await _growBoxService.SetLight(new(s)));
             }
             
             var message = new NotificationMessage
@@ -176,13 +182,13 @@
     }
     private async Task UpdateFanSpeed()
     {
-        if (_appGrowBox is null)
+        if (_growBoxService is null)
             return;
 
         try
         {
-            await UpdateGrowBoxData(
-                await _appGrowBox.Service.GrowBoxEsp.SetFanSpeed(new (255 - _fanSpeed)));
+            UpdateGrowBoxData(
+                await _growBoxService.SetFanSpeed(new (255 - _fanSpeed)));
             
             var message = new NotificationMessage
             {
@@ -208,12 +214,12 @@
     }
     private async Task DeleteGrowBox()
     {
-        if (_appGrowBox is null) return;
+        if (_growBox is null) return;
         
         if (!await OverlayService.ConfirmDelete("GrowBox"))
             return;
         
-        await App.DeleteGrowBox(_appGrowBox.GrowBox); 
+        await App.DeleteGrowBox(_growBox); 
         NavigationManager.NavigateTo("/");
     }
 }

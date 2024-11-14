@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GrowBox.Abstractions.Model;
 
-public class GrowBox : IEntityBase
+public class GrowBoxModel : IEntityBase
 {
     [Key]
     public Guid Id { get; set; } = Guid.Empty;

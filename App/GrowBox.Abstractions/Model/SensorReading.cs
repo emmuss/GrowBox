@@ -7,7 +7,7 @@ public class SensorReading : IEntityId, IEntityCreated
     [Key]
     public Guid Id { get; set; } = Guid.Empty;
     /// <summary>
-    /// FOREIGN KEY <see cref="GrowBox"/>.
+    /// FOREIGN KEY <see cref="GrowBoxModel"/>.
     /// </summary>
     public Guid GrowBoxId { get; set; }
     

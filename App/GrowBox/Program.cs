@@ -37,7 +37,6 @@ services.AddScoped(typeof(SimpleStorage<>));
 services.AddScoped(typeof(SimpleStorage<,>));
 services.AddScoped<IOverlayService, OverlayService>();
 services.AddScoped<INavigationPanelService, NavigationPanelService>();
-services.AddScoped<GrowBoxRepositoryFactory>();
 services.AddScoped<MyJsInterop>();
 
 var host = builder.Build();

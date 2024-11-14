@@ -2,153 +2,229 @@
 @using GrowBox.State
 @using GrowBox.Abstractions.Model.EspApi
 @using Blazor.MinimalApi.Client
+@using GrowBox.Abstractions.Model
 @using GrowBox.Services
 @using Refit
+@using ReactiveComponent = GrowBox.Controls.ReactiveComponent
 
 @page "/growbox/{GrowBoxId:guid}"
 
-@implements IAsyncDisposable
+@inherits ReactiveComponent
 
 @inject App App
 @inject NavigationManager NavigationManager
-@inject MinimalHttpClient<Abstractions.Model.SensorReadingRequest, Abstractions.Model.SensorReading[]> SensorReadings
+@inject MinimalHttpClient<SensorReadingRequest, SensorReading[]> SensorReadings
 @inject IJSRuntime Js
 @inject ILogger<GrowBoxPage> Logger
 
-@if (_appGrowBox != null && _growBoxRoot != null) 
+
+<RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
+@if (_growBox != null && _growBoxRoot != null) 
 {
-    <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
-            @if (!string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamSnapshotUrl))
-            {
-                <RadzenButton Icon="photo_library" ButtonStyle="ButtonStyle.Secondary" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/diary"))/>
-            }
-            <RadzenButton Icon="park" ButtonStyle="ButtonStyle.Secondary" Click="@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/grows"))" />
-            
-            <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_appGrowBox.GrowBox.Id}/settings"))/>
-        </RadzenStack>
-        <RadzenCard Variant="Variant.Filled">
-            <RadzenStack Gap="0.5rem">
-                <RadzenText TextStyle="TextStyle.Subtitle1" TextAlign="TextAlign.Center" style="margin-bottom: 0;">@_appGrowBox.GrowBox.Name</RadzenText>
-                <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" style="margin-bottom: 0; font-size: 3rem; font-weight: 100;">@Math.Round(_growBoxRoot.Temperature) °C</RadzenText>
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0">
-                    <RadzenIcon Icon="water_drop"/> <span>@Math.Round(_growBoxRoot.Humidity, 1) %</span>
-                    <span class="mx-2">|</span>
-                    <span>@(Math.Round(_growBoxRoot.Pressure / 100, 1)) hpa</span>
-                </RadzenStack>
-                @if (_waterPumpsRoot != null)
-                {
-                    @foreach (var waterPump in _waterPumpsRoot.Pumps)
-                    {
-                        if (waterPump.AutoPumpBegin == -1)
-                            continue;
-
-                        var pumpActivityInSeconds = GetWaterPumpActivity(waterPump.Id);
-                        var mlPumped = _waterPumpsRoot!.PumpMilliLiterPerMinute * TimeSpan.FromSeconds(pumpActivityInSeconds).TotalMinutes;
-                        var css = mlPumped <= 0 ? "rz-color-danger" : "";
-                        
-                        
-                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="8px">
-                            <span class="@css"> Pump @waterPump.Id </span>
-                            <RadzenIcon Icon="water" class="@css" />
-                            <span class="@css">
-                                @(mlPumped.ToString("0.##")) ml
-                            </span>
-                        </RadzenStack>
-                    } 
-                }
-                @if (_growBoxRoot.LightSchedule.SunScheduleEnabled)
-                {
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_rise.ToString(@"hh\:mm\:ss")</RadzenText>
-                        <div style="display: flex; justify-content: start; align-items: center;">
-                            <RadzenIcon Icon="north_east"/>
-                            <RadzenIcon Icon="sunny"/>
-                        </div>
-                        <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_sunDuration.ToString(@"hh\:mm\:ss")</RadzenText>
-                        <div style="display: flex; justify-content: start; align-items: center;">
-                            <RadzenIcon Icon="sunny"/>
-                            <RadzenIcon Icon="south_east"/>
-                        </div>
-                        <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_set.ToString(@"hh\:mm\:ss")</RadzenText>
-                    </div>
-                }
-                @if (!string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamStreamUrl) && 
-                     !string.IsNullOrEmpty(_appGrowBox.GrowBox.WebCamSnapshotUrl))
-                {
-                    <a href="@_appGrowBox.GrowBox.WebCamStreamUrl" target="_blank">
-                        <img id="webCam" src="@_appGrowBox.GrowBox.WebCamSnapshotUrl" style="width: 100%; object-fit:cover; border-radius: 8px;" alt="Webcam Image Loading..."/>
-                    </a>
-                }
-            </RadzenStack>
-        </RadzenCard>
-
-        <RadzenCard Variant="Variant.Filled">
-            <GrowBoxChart @ref="_chart"/>
-        </RadzenCard>
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+        @if (!string.IsNullOrEmpty(_growBox.WebCamSnapshotUrl))
+        {
+            <RadzenButton Icon="photo_library" ButtonStyle="ButtonStyle.Secondary" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_growBox.Id}/diary"))/>
+        }
+        <RadzenButton Icon="park" ButtonStyle="ButtonStyle.Secondary" Click="@(() => NavigationManager.NavigateTo($"/growbox/{_growBox.Id}/grows"))" />
         
-    </RadzenStack>    
+        <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_growBox.Id}/settings"))/>
+    </RadzenStack>
+    <RadzenCard Variant="Variant.Filled">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText TextStyle="TextStyle.Subtitle1" TextAlign="TextAlign.Center" style="margin-bottom: 0;">@_growBox.Name</RadzenText>
+            <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" style="margin-bottom: 0; font-size: 3rem; font-weight: 100;">@Math.Round(_growBoxRoot.Temperature) °C</RadzenText>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0">
+                <RadzenIcon Icon="water_drop"/> <span>@Math.Round(_growBoxRoot.Humidity, 1) %</span>
+                <span class="mx-2">|</span>
+                <span>@(Math.Round(_growBoxRoot.Pressure / 100, 1)) hpa</span>
+            </RadzenStack>
+            @if (_waterPumpsRoot != null)
+            {
+                @foreach (var waterPump in _waterPumpsRoot.Pumps)
+                {
+                    if (waterPump.AutoPumpBegin == -1)
+                        continue;
+                    var pumpActivityInSeconds = _waterPumpActivities[waterPump.Id];
+                    var mlPumped = _waterPumpsRoot!.PumpMilliLiterPerMinute * TimeSpan.FromSeconds(pumpActivityInSeconds).TotalMinutes;
+                    var css = mlPumped <= 0 ? "rz-color-danger" : "";
+                    
+                    
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="8px">
+                        <span class="@css"> Pump @waterPump.Id </span>
+                        <RadzenIcon Icon="water" class="@css" />
+                        <span class="@css">
+                            @(mlPumped.ToString("0.##")) ml
+                        </span>
+                    </RadzenStack>
+                } 
+            }
+            @if (_growBoxRoot.LightSchedule.SunScheduleEnabled)
+            {
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_rise.ToString(@"hh\:mm\:ss")</RadzenText>
+                    <div style="display: flex; justify-content: start; align-items: center;">
+                        <RadzenIcon Icon="north_east"/>
+                        <RadzenIcon Icon="sunny"/>
+                    </div>
+                    <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_sunDuration.ToString(@"hh\:mm\:ss")</RadzenText>
+                    <div style="display: flex; justify-content: start; align-items: center;">
+                        <RadzenIcon Icon="sunny"/>
+                        <RadzenIcon Icon="south_east"/>
+                    </div>
+                    <RadzenText TextStyle="TextStyle.Overline" style="margin-bottom: 0;">@_set.ToString(@"hh\:mm\:ss")</RadzenText>
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(_growBox.WebCamStreamUrl) && 
+                 !string.IsNullOrEmpty(_growBox.WebCamSnapshotUrl))
+            {
+                <a href="@_growBox.WebCamStreamUrl" target="_blank">
+                    <img id="webCam" src="@_growBox.WebCamSnapshotUrl" style="width: 100%; object-fit:cover; border-radius: 8px;" alt="Webcam Image Loading..."/>
+                </a>
+            }
+        </RadzenStack>
+    </RadzenCard>    
 }
+    <RadzenCard Variant="Variant.Filled">
+        <GrowBoxChart @ref="_chart"/>
+    </RadzenCard>
+</RadzenStack>
 
 
 @code
 {
-    private AppGrowBox? _appGrowBox;
+    private GrowBoxModel? _growBox;
     private GrowBoxEspRoot? _growBoxRoot;
     private WaterPumpsEspRoot? _waterPumpsRoot;
-    private Abstractions.Model.SensorReading[] _sensorReadings = Array.Empty<Abstractions.Model.SensorReading>();
     private GrowBoxChart? _chart;
-
-    private readonly List<IDisposable> _subscriptions = new();
+    private readonly Dictionary<int, double> _waterPumpActivities = new();
 
     TimeSpan _rise = TimeSpan.Zero;
     TimeSpan _sunDuration = TimeSpan.Zero;
     TimeSpan _set = TimeSpan.Zero;
-    private IWaterPumpsEsp? _waterPumpsEsp;
 
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
-
-    protected override async Task OnParametersSetAsync()
+    
+    protected override void OnInitialized()
     {
-        if (_appGrowBox is not null)
-            await _appGrowBox.Service.Stop();
-        _appGrowBox = null;
-        _growBoxRoot = null;
-        _subscriptions.ForEach(x => x.Dispose());
-        _subscriptions.Clear();
-
-        if (GrowBoxId == Guid.Empty)
-        {
-            return;
-        }
-
-        IDisposable idSub = default!;
-        idSub = App.AppState.Subscribe(appState =>
-        {
-            _appGrowBox = appState.GrowBoxes.FirstOrDefault(y => y.GrowBox.Id == GrowBoxId);
-            if (_appGrowBox is null)
-                return;
-            _subscriptions.Add(
-                _appGrowBox.Service.GrowBoxRoot.Subscribe(root => { UpdateGrowBoxRootAsync(root); }));
-            _appGrowBox.Service.Start();
-            // ReSharper disable once AccessToModifiedClosure
-            // we want to dispose ourself after init.
-            idSub.Dispose();
-        });
+        base.OnInitialized();
+        ObserveParameter(() => GrowBoxId)
+            .Where(x => x != Guid.Empty)
+            .Select(App.GetAppGrowBox)
+            .Select(x => Observable.FromAsync(() => GetComposition(x)))
+            .Switch()
+            .Select(x => Observable.FromAsync(() => Update(x)))
+            .Switch()
+            .Subscribe(_ => {}, (e) => Logger.LogError(e, "Unable to load composition."));
+        
+        Observable.Timer(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5))
+            .TakeUntil(Disposed)
+            .Select(_ => GrowBoxId)
+            .Where(x => x != Guid.Empty)
+            .Select(App.GetAppGrowBox)
+            .Select(x => Observable.FromAsync(() => GetComposition(x)))
+            .Switch()
+            .Select(x => Observable.FromAsync(() => Update(x)))
+            .Switch()
+            .Subscribe(_ => {}, (e) => Logger.LogError(e, "Unable to load composition."));
     }
 
-    private double GetWaterPumpActivity(int pumpId)
+    private record Composition(
+        GrowBoxModel GrowBox,
+        GrowBoxEspRoot GrowBoxEspRoot, 
+        WaterPumpsEspRoot? WaterPumpsEspRoot, 
+        SensorReading[] SensorReadings);
+
+    private async Task<Composition> GetComposition(AppGrowBox appGrowBox)
+    {
+        var growBox = appGrowBox.GrowBox;
+        var growBoxService = RestService.For<IGrowBoxEsp>(growBox.GrowBoxUrl);
+        var growBoxRoot = await growBoxService.Get();
+        var waterPumpsRoot = await GetWaterPumpsRoot(growBox.WaterPumpsUrl);
+        var sensorReadings = await GetSensorReadings(waterPumpsRoot);
+        return new Composition(
+            growBox, 
+            growBoxRoot, 
+            waterPumpsRoot, 
+            sensorReadings);
+    }
+
+    private async Task<WaterPumpsEspRoot?> GetWaterPumpsRoot(string? url)
+    {
+        if (string.IsNullOrEmpty(url))
+            return null;
+        
+        try
+        {
+            return await RestService.For<IWaterPumpsEsp>(url).Get();
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Unable to request water pumps root.");
+        }
+
+        return null;
+    }
+
+    private async Task<SensorReading[]> GetSensorReadings(WaterPumpsEspRoot? waterPumpsEspRoot)
+    {
+        try
+        {
+            List<string> types = ["temperature", "pressure", "light", "humidity"];
+            if (waterPumpsEspRoot is not null)
+            {
+                types.AddRange(
+                    waterPumpsEspRoot.Pumps.Select(x => $"wp{x.Id}_active"));
+            }
+            
+            return await SensorReadings.Get(new SensorReadingRequest(
+                types.ToArray(),
+                GrowBoxId, DateTime.UtcNow - TimeSpan.FromDays(1), null)) ?? [];
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e, "Unable to get sensor readings.");
+        }
+
+        return [];
+    }
+
+    private async Task Update(Composition composition)
+    {
+        Console.WriteLine($"what? {composition.GrowBox.GrowBoxUrl}");
+        _growBox = composition.GrowBox;
+        _growBoxRoot = composition.GrowBoxEspRoot;
+        _waterPumpsRoot = composition.WaterPumpsEspRoot;
+        var rise = _growBoxRoot.LightSchedule?.Sunrise ?? 21600;
+        var set = rise + (_growBoxRoot?.LightSchedule?.SunDuration ?? 64800);
+        _rise = TimeSpan.FromSeconds(rise);
+        _set = TimeSpan.FromSeconds(set);
+        _sunDuration = _set - _rise;
+        var sensorReadings = composition.SensorReadings.OrderBy(x => x.Created).ToArray(); 
+        if (_chart is not null) 
+            await _chart.UpdateChart(sensorReadings);
+        _waterPumpActivities.Clear();
+        foreach (var pump in _waterPumpsRoot?.Pumps ?? [])
+        {
+            _waterPumpActivities.Add(pump.Id, GetWaterPumpActivity(sensorReadings, pump.Id));
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private double GetWaterPumpActivity(SensorReading[] sensorReadings, int pumpId)
     {
         var pumpType = $"wp{pumpId}_active";
         double activity = 0;
-        var readings = _sensorReadings
+        var readings = sensorReadings
             .Where(x => x.Type == pumpType)
             .OrderBy(x => x.Created)
             .ToArray();
 
         DateTime? lastActive = null;
-        foreach (Abstractions.Model.SensorReading reading in readings)
+        var index = 0;
+        for (; index < readings.Length; index++)
         {
+            var reading = readings[index];
             if (Math.Abs(reading.Value - 1) < 0.001)
             {
                 lastActive = reading.Created;
@@ -166,76 +242,5 @@
         }
 
         return activity;
-    }
-
-    private async void UpdateGrowBoxRootAsync(GrowBoxEspRoot? root)
-    {
-        _growBoxRoot = root;
-        var rise = _growBoxRoot?.LightSchedule?.Sunrise ?? 21600;
-        var set = rise + (_growBoxRoot?.LightSchedule?.SunDuration ?? 64800);
-        _rise = TimeSpan.FromSeconds(rise);
-        _set = TimeSpan.FromSeconds(set);
-        _sunDuration = _set - _rise;
-        await UpdateWaterPumpsDataAsync();
-        await UpdateChartDataAsync(); 
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task UpdateChartDataAsync()
-    {
-        if (_chart is null)
-        {
-            return;
-        }
-
-        try
-        {
-            List<string> types = ["temperature", "pressure", "light", "humidity"];
-            if (_waterPumpsRoot is not null)
-            {
-                types.AddRange(
-                    _waterPumpsRoot.Pumps.Select(x => $"wp{x.Id}_active"));
-            }
-            
-            var sensorReadings = await SensorReadings.Get(new Abstractions.Model.SensorReadingRequest(
-                types.ToArray(),
-                GrowBoxId, DateTime.UtcNow - TimeSpan.FromDays(1), null));
-            _sensorReadings = sensorReadings ?? [];
-            await _chart.UpdateChart(sensorReadings?.OrderBy(x => x.Created).ToArray());
-        }
-        catch (Exception e)
-        {
-            // TODO:
-        }
-    }
-
-    private async Task UpdateWaterPumpsDataAsync(WaterPumpsEspRoot? waterPumpsRoot = null)
-    {
-        if (_waterPumpsEsp is null)
-        {
-            if (!string.IsNullOrEmpty(_appGrowBox?.GrowBox.WaterPumpsUrl))
-                _waterPumpsEsp = RestService.For<IWaterPumpsEsp>(_appGrowBox.GrowBox.WaterPumpsUrl);
-            else
-                return;
-        }
-
-        try
-        {
-            _waterPumpsRoot = waterPumpsRoot ?? await _waterPumpsEsp.Get();
-        }
-        catch (Exception e)
-        {
-            Logger.LogError(e, "Unable to get water pumps.");
-        }
-    }
-
-
-    async ValueTask IAsyncDisposable.DisposeAsync()
-    {
-        if (_appGrowBox is not null)
-            await _appGrowBox.Service.Stop();
-
-        _growBoxRoot = null;
-        _subscriptions.ForEach(x => x.Dispose());
     }
 }

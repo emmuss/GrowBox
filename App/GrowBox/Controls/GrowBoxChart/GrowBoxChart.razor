@@ -10,6 +10,15 @@
 @code {
     private readonly string _chartId = "growbox-chart-" + Guid.NewGuid().ToString("N");
     private IJSObjectReference? _module;
+    private bool _renderOnce = true;
+
+    protected override bool ShouldRender()
+    {
+        var render = _renderOnce;
+        if (render)
+            _renderOnce = false;
+        return render;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -27,6 +36,7 @@
         {
             return;
         }
+        
 
         await _module.InvokeVoidAsync("updateGrowBoxChart", _chartId, data);
     }

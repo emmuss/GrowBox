@@ -23,7 +23,7 @@ public class Grow : IEntityBase
     public bool IsArchived { get; set; } = false;
     
     /// <summary>
-    /// FOREIGN KEY <see cref="GrowBox"/>.
+    /// FOREIGN KEY <see cref="GrowBoxModel"/>.
     /// </summary>
     public Guid GrowBoxId { get; set; } = Guid.Empty;
     

@@ -28,12 +28,10 @@ const char* pass = SECRET_PASS;    // your network password
 const char* webcam = "http://192.168.178.200:8081/";
 
 // Timezone rule / NTP Servers
-const char* time_zone = "CET-1CEST,M3.5.0,M10.5.0/3"; // (Berlin)
-const long  gmtOffset_sec = 3600;
-const int   daylightOffset_sec = 3600;
-#define NTP_SERVERS "0.de.pool.ntp.org", "1.de.pool.ntp.org", "2.de.pool.ntp.org"
+#define NTP_SERVERS "0.europe.pool.ntp.org", "pool.ntp.org", "time.nist.gov"
+#define NTP_TIMEZONE_HRS 1
+int NTP_DST_HRS = 0;
 #define NTP_MIN_VALID_EPOCH 1533081600
-#define mytime time(nullptr) + 7200
 
 ESP8266WebServer server(80);
 Adafruit_BME280 bme;
@@ -125,7 +123,8 @@ void serverSendContext() {
         result += "\"timestamp\":" + String(context.timestamp) + ",";
         result += "\"dewPoint\":" + String(context.dewPoint) + ",";
         result += "\"heatIndex\":" + String(context.heatIndex) + ",";
-        result += "\"timestamp\":" + String(context.timestamp) + ",";
+        result += "\"tzHrs\" :" + String(NTP_TIMEZONE_HRS) + ",";
+        result += "\"dstHrs\" :" + String(NTP_DST_HRS) + ",";
         result += "\"fanSpeed\":" + String(context.fanSpeed);
 
         result += ", \"lightSchedule\": {";
@@ -278,17 +277,49 @@ void configureRoutes() {
 
 // SETUP / LOOP #########################################
 
+int summertime_EU(time_t n) {  
+  struct tm * timeinfo;
+  timeinfo = gmtime(&n);                                // Also as localtime
+  byte hour = timeinfo->tm_hour;                        // Hours 0 to 23
+  byte day = timeinfo->tm_mday;                        // Day of month 1 to 31
+  byte month = timeinfo->tm_mon;                        // Months since Jan. 0 to 11
+  month += 1;                                           // Month now 1 to 12
+  byte year = timeinfo->tm_year + 1900;                 // Year with 4 digits
+  int tzHours = NTP_TIMEZONE_HRS;
+
+  if (month < 3 || month > 10) return 0; // keine Sommerzeit in Jan, Feb, Nov, Dez
+  if (month > 3 && month < 10) return 1; // Sommerzeit in Apr, Mai, Jun, Jul, Aug, Sep
+  if (month == 3 && (hour + 24 * day) >= (1 + tzHours + 24 * (31 - (5 * year / 4 + 4) % 7)) || month == 10 && (hour + 24 * day) < (1 + tzHours + 24 * (31 - (5 * year / 4 + 1) % 7)))
+    return 1;
+  else
+    return 0;
+}
+
 void initNtp() {
   time_t n;
-  configTime(0, 0, NTP_SERVERS);
-  setenv("TZ", time_zone, 1);     
-  tzset();
+  configTime(NTP_TIMEZONE_HRS * 3600, NTP_DST_HRS * 3600, NTP_SERVERS);
   Serial.print("Wait for valid ntp response.");
-  while((n = mytime) < NTP_MIN_VALID_EPOCH) {
+  while((n = time(nullptr)) < NTP_MIN_VALID_EPOCH) {
     blink(500);
     Serial.print(".");
-  }
+  }  
   Serial.println();
+  getTimeWithDstUpdate();
+}
+
+time_t getTimeWithDstUpdate() {
+  time_t n;
+  time(&n);
+  int dst = summertime_EU(n);
+  if (dst != NTP_DST_HRS)
+  {
+    NTP_DST_HRS = dst;
+    configTime(NTP_TIMEZONE_HRS * 3600, NTP_DST_HRS * 3600, NTP_SERVERS);
+  }
+  while((time(&n)) < NTP_MIN_VALID_EPOCH) {
+    blink(500);
+  }  
+  return n;
 }
 
 // blink with delay
@@ -369,7 +400,7 @@ float DewPoint(float temp, float hum)
 }
 
 void updateContext() {
-  context.timestamp = mytime;  
+  context.timestamp = getTimeWithDstUpdate();  
   if (bmeAvailable) {
     context.humidity = bme.readHumidity();
     context.pressure = bme.readPressure();
@@ -533,7 +564,7 @@ void setup() {
 
 time_t lastEpoch = 0;
 void loop() {
-  time_t epoch = mytime;
+  time_t epoch = getTimeWithDstUpdate();
   now = DateTime(epoch);
   bool epochChanged = epoch != lastEpoch;
 

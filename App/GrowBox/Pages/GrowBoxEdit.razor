@@ -8,7 +8,7 @@
 @inject App App
 @inject IJSRuntime Js
 @inject NavigationManager NavigationManager
-@inject MinimalHttpClient<Abstractions.Model.GrowBox> GrowBoxRead 
+@inject MinimalHttpClient<Abstractions.Model.GrowBoxModel> GrowBoxRead 
 @inject ILogger<GrowBoxEdit> Logger
 @inject NotificationService NotificationService
 
@@ -25,7 +25,7 @@
 {
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
     
-    private GrowBox? _growBox;
+    private GrowBoxModel? _growBox;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -44,7 +44,7 @@
         }
     }
 
-    private async Task OnSubmit(GrowBox growBox)
+    private async Task OnSubmit(GrowBoxModel growBox)
     {
         try
         {

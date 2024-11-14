@@ -13,7 +13,7 @@
 
 @code
 {
-    private readonly GrowBox _growBox = new()
+    private readonly GrowBoxModel _growBox = new()
     {
         GrowBoxUrl = "http://growbox01/",
         Icon = "yard", 
@@ -21,7 +21,7 @@
         WebCamSnapshotUrl = "http://growbox.local:8091/?action=snapshot",
     };
     
-    private async Task OnSubmit(GrowBox growBox)
+    private async Task OnSubmit(GrowBoxModel growBox)
     {
         try
         {
