@@ -233,6 +233,14 @@ void handleLightScheduleSet() {
     scheduleChanged = true;
   }
 
+  if (!context.sunScheduleEnabled && jsonInput.hasOwnProperty("light")) { 
+    context.light = (unsigned char)jsonInput["light"];
+    Serial.print("light set to ");
+    Serial.println(context.light);
+    analogWrite(pLight, context.light);
+    scheduleChanged = true;
+  }
+
   if (scheduleChanged) {
     contextSaveChanges();
     serverSendContext();

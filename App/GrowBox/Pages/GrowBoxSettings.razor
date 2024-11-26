@@ -146,17 +146,13 @@
 
         try
         {
-            if (_sunScheduleEnabled)
-            {
-                UpdateGrowBoxData(
-                    await _growBoxService.SetLightSchedule(
-                        new (_sunScheduleEnabled, RiseAndSet.First(), RiseAndSet.Last() - RiseAndSet.First(), s)));
-            }
-            else
-            {
-                UpdateGrowBoxData(
-                    await _growBoxService.SetLight(new(s)));
-            }
+            
+            UpdateGrowBoxData(await _growBoxService.SetLightSchedule(
+                new (
+                    _sunScheduleEnabled, 
+                    RiseAndSet.First(), 
+                    RiseAndSet.Last() - RiseAndSet.First(), 
+                    s, s)));
             
             var message = new NotificationMessage
             {
