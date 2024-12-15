@@ -8,10 +8,11 @@ RUN dotnet restore
 # Build and publish a release
 RUN dotnet publish /GrowBox.Server/GrowBox.Server.csproj -c Release -o app
 
-RUN apt-get -y update && apt-get -y upgrade && apt-get install -y --no-install-recommends ffmpeg
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app .
 RUN chown -R 1000:1000 ./wwwroot
+# install ffmpeg
+RUN apt-get -y update && apt-get -y upgrade && apt-get install -y --no-install-recommends ffmpeg
 ENTRYPOINT ["dotnet", "./GrowBox.Server.dll"]
