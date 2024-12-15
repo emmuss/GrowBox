@@ -3,6 +3,15 @@ using GrowBox.Server;
 using GrowBox.Server.Services;
 using Microsoft.EntityFrameworkCore;
 
+// await TimelapseService.GenerateTimelapse(
+//     @"D:\timelapsetest.mp4", 
+//     Directory.GetFiles(@"Z:\GrowBox\x52kmAC4JEWu0JaENCRRRA", "*.jpeg"),
+//     CancellationToken.None,
+//     singleImageDuration: TimeSpan.FromSeconds(1d / 4d)
+//     );
+
+// await DiarySnapshotService.GenerateWeeklyTimelapses(@"Z:\GrowBox\x52kmAC4JEWu0JaENCRRRA", CancellationToken.None);
+
 var builder = WebApplication.CreateBuilder(args);
 var serverConfiguration = new ServerConfiguration();
 builder.Configuration.GetSection("Configuration").Bind(serverConfiguration);

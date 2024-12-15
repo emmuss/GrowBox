@@ -8,7 +8,9 @@
 
     <ItemGroup>
         <PackageReference Include="Blazor.MinimalApi.Server" Version="8.0.1" />
+        <PackageReference Include="FFMediaToolkit" Version="4.5.1" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.10" />
+        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.6" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
             <PrivateAssets>all</PrivateAssets>
@@ -22,6 +24,51 @@
 
     <ItemGroup>
       <ProjectReference Include="..\GrowBox\GrowBox.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="FFMPEG\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="FFMPEG\avcodec-61.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="FFMPEG\avformat-61.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="FFMPEG\avutil-59.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="FFMPEG\swresample-5.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="FFMPEG\swscale-8.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="FFMPEG\avcodec-60.dll" />
+      <Resource Include="FFMPEG\avcodec-60.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
+      <None Remove="FFMPEG\avformat-60.dll" />
+      <Resource Include="FFMPEG\avformat-60.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
+      <None Remove="FFMPEG\avutil-58.dll" />
+      <Resource Include="FFMPEG\avutil-58.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
+      <None Remove="FFMPEG\swresample-4.dll" />
+      <Resource Include="FFMPEG\swresample-4.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
+      <None Remove="FFMPEG\swscale-7.dll" />
+      <Resource Include="FFMPEG\swscale-7.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Resource>
     </ItemGroup>
 
 </Project>

@@ -1,4 +1,5 @@
-﻿using GrowBox.Abstractions;
+﻿using System.Globalization;
+using GrowBox.Abstractions;
 using GrowBox.Abstractions.Model;
 using GrowBox.Abstractions.Model.EspApi;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,75 @@ namespace GrowBox.Server.Services;
 public class DiarySnapshotService(ServerConfiguration config, IServiceProvider services, ILogger<DiarySnapshotService> logger) : BackgroundService
 {
     public const string DIARY_SNAPSHOT_FILE_MARKER = "gbd-";
+    public const string DIARY_SNAPSHOT_FILE_EXTENSION = ".jpeg";
+    public const string DIARY_TIMELAPSE_FILE_EXTENSION = ".mp4"; 
+    public const string DIARY_TIMELAPSE_DATETIME_SPLITTER = "_to_"; 
     public const string DIARY_SNAPSHOT_FILE_DATETIME_MASK = "yyyy-MM-ddTHH-mm-ss";
+    public const string DIARY_SNAPSHOT_FILE_DATETIME_SEAR = "****-**-**T**-**-**";
+
+    public static (string Path, DateTime TimeStamp)[] GetSnapshots(string path)
+    {
+        return Directory.GetFiles(path,
+                DIARY_SNAPSHOT_FILE_MARKER + DIARY_SNAPSHOT_FILE_DATETIME_SEAR + DIARY_SNAPSHOT_FILE_EXTENSION)
+            .Select(x => (
+                Path: x, 
+                Timestamp: DateTime.ParseExact(
+                    Path.GetFileNameWithoutExtension(x).Replace(DIARY_SNAPSHOT_FILE_MARKER, ""), 
+                    DIARY_SNAPSHOT_FILE_DATETIME_MASK,
+                    CultureInfo.InvariantCulture)))
+            .OrderBy(x =>x.Timestamp).ToArray();
+    }
+
+    public static async Task GenerateWeeklyTimelapses(string path, CancellationToken cancellationToken)
+    {
+        var snapshots = GetSnapshots(path);
+        while (snapshots.Length > 0)
+        {
+            DateTime weekBegin = snapshots.First().TimeStamp;
+            DateTime weekEnd = weekBegin.AddDays(7);
+            void TrimSnapshots() {
+                snapshots = snapshots.Where(x => x.TimeStamp > weekEnd).ToArray();
+            }
+            if (weekEnd > DateTime.Now)
+                return;
+            string timelapseName =
+                DIARY_SNAPSHOT_FILE_MARKER +
+                weekBegin.ToString(DIARY_SNAPSHOT_FILE_DATETIME_MASK) +
+                DIARY_TIMELAPSE_DATETIME_SPLITTER +
+                weekEnd.ToString(DIARY_SNAPSHOT_FILE_DATETIME_MASK) +
+                DIARY_TIMELAPSE_FILE_EXTENSION;
+            string timelapsePath = Path.Combine(path, timelapseName);
+            if (File.Exists(timelapsePath))
+            {
+                TrimSnapshots();
+                continue;
+            }
+
+            var imagesForTimelapse = snapshots
+                .Where(x => x.TimeStamp >= weekBegin && x.TimeStamp < weekEnd)
+                .Select(x => x.Path)
+                .ToArray(); 
+            TrimSnapshots();
+
+            try
+            {
+                await ImagesToMp4.GenerateTimelapse(
+                    timelapsePath,
+                    imagesForTimelapse, 
+                    cancellationToken,
+                    singleImageDuration: TimeSpan.FromSeconds(1d / 4d));
+            }
+            catch 
+            {
+                if (File.Exists(timelapsePath))
+                {
+                    File.Delete(timelapsePath);
+                }
+                throw;
+            }
+        }
+    }
+
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Started.");
@@ -52,7 +121,7 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
                 var snapshotTargetDir = Path.Combine(config.DiarySnapshotOutputPath, compressedGuidForPath);
                 var whoAmIFilePath = Path.Combine(snapshotTargetDir, "growbox.txt");
                 var snapshotFilePath = Path.Combine(snapshotTargetDir, 
-                    DIARY_SNAPSHOT_FILE_MARKER + DateTime.Now.ToString(DIARY_SNAPSHOT_FILE_DATETIME_MASK)+".jpeg");
+                    DIARY_SNAPSHOT_FILE_MARKER + DateTime.Now.ToString(DIARY_SNAPSHOT_FILE_DATETIME_MASK)+DIARY_SNAPSHOT_FILE_EXTENSION);
 
                 try
                 {
@@ -68,6 +137,15 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
                 {
                     logger.LogError(e, $"Error requesting snapshot for {growBox.Name}. (Url: {snapshotUrl})");
                 }
+
+                try
+                {
+                    await GenerateWeeklyTimelapses(snapshotTargetDir, cancellationToken);
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, $"Error generating weekly timelapses for {growBox.Name}. targetDir: {snapshotTargetDir}");
+                }
             }
 
             if (isContextChanged)
@@ -76,7 +154,7 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
             logger.LogInformation("End snap shooting.");
             
             // wait for next execution.
-            await Task.Delay(TimeSpan.FromMinutes(60), cancellationToken);
+            await Task.Delay(TimeSpan.FromMinutes(30), cancellationToken);
         }
 
         logger.LogInformation("Stopped.");

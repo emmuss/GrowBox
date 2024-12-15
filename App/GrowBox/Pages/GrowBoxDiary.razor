@@ -14,6 +14,18 @@
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start">
             <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Dark" Click=@(() => Js.InvokeVoidAsync("history.back")) />
         </RadzenStack>
+        
+        @if (_diary.Timelapses.Length > 0)
+        {
+            foreach (var timelapse in _diary.Timelapses)
+            {
+                <video width="auto" height="auto" controls>
+                    <source src="@timelapse.Path" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>   
+            }
+        }
+
         @* TODO: https://github.com/welisonmenezes/wm-blazor-slick-carousel/blob/master/WMBlazorSlickCarousel/WMBSC/BlazorSlickCarousel.razor*@
         <RadzenDataList @ref=_dataList PageSize="1" WrapItems="true" AllowPaging="true" PagerPosition="PagerPosition.Top"
                         Data="@_snapshots.OrderByDescending(x => x.Created)" TItem="DiarySnapshot">

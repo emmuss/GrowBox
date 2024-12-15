@@ -25,7 +25,9 @@ public class DiariesEd(ILogger<DiariesEd> logger, ServerConfiguration config) : 
             {
                 var files = Directory.GetFiles(
                     snapshotTargetDir, 
-                    $"{DiarySnapshotService.DIARY_SNAPSHOT_FILE_MARKER}*");
+                    DiarySnapshotService.DIARY_SNAPSHOT_FILE_MARKER + 
+                    "*" + 
+                    DiarySnapshotService.DIARY_SNAPSHOT_FILE_EXTENSION);
                 foreach (var file in files)
                 {
                     var fileName = Path.GetFileName(file);
@@ -55,10 +57,66 @@ public class DiariesEd(ILogger<DiariesEd> logger, ServerConfiguration config) : 
             }
             catch (Exception e)
             {
-                logger.LogError(e, $"Can't build Diary for {growBox.Name}.");
+                logger.LogError(e, $"Can't build snapshots for {growBox.Name}.");
             }
 
-            return new Diary(snapshots.ToArray(), growBox.Id);
+            List<DiaryTimelapse> timelapses = [];
+            try
+            {
+                var files = Directory.GetFiles(
+                    snapshotTargetDir, 
+                    DiarySnapshotService.DIARY_SNAPSHOT_FILE_MARKER + 
+                    "*" + 
+                    DiarySnapshotService.DIARY_TIMELAPSE_FILE_EXTENSION);
+                foreach (var file in files)
+                {
+                    var fileName = Path.GetFileName(file);
+                    var dateTimePart = Path.GetFileNameWithoutExtension(file)
+                        .Substring(DiarySnapshotService.DIARY_SNAPSHOT_FILE_MARKER.Length);
+                    if (string.IsNullOrEmpty(dateTimePart))
+                    {
+                        continue;
+                    }
+
+                    var dateTimeParts = dateTimePart.Split(DiarySnapshotService.DIARY_TIMELAPSE_DATETIME_SPLITTER);
+                    if (dateTimeParts.Length != 2)
+                    {
+                        continue;
+                    }
+                    if (!DateTime.TryParseExact(
+                            dateTimeParts[0],
+                            DiarySnapshotService.DIARY_SNAPSHOT_FILE_DATETIME_MASK,
+                            null,
+                            DateTimeStyles.AssumeLocal,
+                            out var from))
+                    {
+                        continue;
+                    }
+                    if (!DateTime.TryParseExact(
+                            dateTimeParts[1],
+                            DiarySnapshotService.DIARY_SNAPSHOT_FILE_DATETIME_MASK,
+                            null,
+                            DateTimeStyles.AssumeLocal,
+                            out var to))
+                    {
+                        continue;
+                    }
+
+                    var timelapse = new DiaryTimelapse(
+                        $"/snapshot/{compressedGuidForPath}/{fileName}",
+                        from, to);
+                    
+                    timelapses.Add(timelapse);
+                }
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, $"Can't build timelapses for {growBox.Name}.");
+            }
+            
+            
+
+            return new Diary(snapshots.ToArray(), timelapses.ToArray(), growBox.Id);
         });
 
         builder.MapGet("/snapshot/{compressedGuidForPath}/{fileName}",
