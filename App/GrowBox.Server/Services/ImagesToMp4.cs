@@ -46,7 +46,7 @@ public static class ImagesToMp4
             EncoderPreset = EncoderPreset.Fast,
             CRF = 17
         };
-        using var mediaOutput = MediaBuilder.CreateContainer(outputVideoPath).WithVideo(settings).Create();
+        using var mediaOutput = MediaBuilder.CreateContainer(Path.GetFullPath(outputVideoPath)).WithVideo(settings).Create();
         
         imagePaths = imagePaths.ToArray();
 
