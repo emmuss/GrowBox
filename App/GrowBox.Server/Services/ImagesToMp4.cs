@@ -25,6 +25,10 @@ public static class ImagesToMp4
                 "FFMPEG");
             FFmpegLoader.FFmpegPath = ffmpegpath;
         }
+        else
+        {
+            FFmpegLoader.FFmpegPath = "/usr/lib/";
+        }
 
         var firstImage = imagePaths.FirstOrDefault();
         var imgDur = singleImageDuration ?? TimeSpan.FromSeconds(0.5);
