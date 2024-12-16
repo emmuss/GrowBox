@@ -27,7 +27,7 @@ public static class ImagesToMp4
         }
         else
         {
-            FFmpegLoader.FFmpegPath = "/usr/lib/";
+            FFmpegLoader.FFmpegPath = "/usr/bin/";
         }
 
         var firstImage = imagePaths.FirstOrDefault();
