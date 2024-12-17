@@ -27,7 +27,7 @@ public static class ImagesToMp4
         }
         else
         { 
-            FFmpegLoader.FFmpegPath = "/usr/lib/arm-linux-gnueabihf/";
+            FFmpegLoader.FFmpegPath = "/usr/lib/arm-linux-gnueabihf";
         }
 
         var firstImage = imagePaths.FirstOrDefault();

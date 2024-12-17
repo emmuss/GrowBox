@@ -80,6 +80,7 @@
             foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
             {
                 last = await _waterPumpsEsp.Set(pump);
+                await Task.Delay(50);
             }
 
             if (last is not null)
