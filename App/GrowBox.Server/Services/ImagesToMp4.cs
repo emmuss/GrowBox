@@ -23,11 +23,23 @@ public static class ImagesToMp4
         {
             var ffmpegpath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, 
                 "FFMPEG");
-            FFmpegLoader.FFmpegPath = ffmpegpath;
+            try
+            {
+                FFmpegLoader.FFmpegPath = ffmpegpath;
+            }
+            catch (Exception e)
+            {
+            }
         }
         else
-        { 
-            FFmpegLoader.FFmpegPath = "/usr/lib/arm-linux-gnueabihf";
+        {
+            try
+            {
+                FFmpegLoader.FFmpegPath = "/usr/lib/arm-linux-gnueabihf";
+            }
+            catch (Exception e)
+            {
+            }
         }
 
         var firstImage = imagePaths.FirstOrDefault();

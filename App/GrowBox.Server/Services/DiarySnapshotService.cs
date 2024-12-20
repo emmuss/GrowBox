@@ -140,7 +140,7 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
 
                 try
                 {
-                    await GenerateWeeklyTimelapses(snapshotTargetDir, cancellationToken);
+                    //await GenerateWeeklyTimelapses(snapshotTargetDir, cancellationToken);
                 }
                 catch (Exception e)
                 {
@@ -154,7 +154,7 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
             logger.LogInformation("End snap shooting.");
             
             // wait for next execution.
-            await Task.Delay(TimeSpan.FromMinutes(30), cancellationToken);
+            await Task.Delay(TimeSpan.FromMinutes(15), cancellationToken);
         }
 
         logger.LogInformation("Stopped.");

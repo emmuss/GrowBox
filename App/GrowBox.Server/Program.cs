@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 //     singleImageDuration: TimeSpan.FromSeconds(1d / 4d)
 //     );
 
-// await DiarySnapshotService.GenerateWeeklyTimelapses(@"Z:\GrowBox\x52kmAC4JEWu0JaENCRRRA", CancellationToken.None);
+//await DiarySnapshotService.GenerateWeeklyTimelapses(@"Z:\GrowBox\x52kmAC4JEWu0JaENCRRRA", CancellationToken.None);
 
 var builder = WebApplication.CreateBuilder(args);
 var serverConfiguration = new ServerConfiguration();
@@ -54,7 +54,5 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseEndpointDefinitions();
 
-    // .WithName("GetWeatherForecast")
-    // .WithOpenApi();
 
 app.Run();
