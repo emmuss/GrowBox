@@ -161,7 +161,7 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
                 try
                 {
                     //0
-                    //  await GenerateWeeklyTimelapses(snapshotTargetDir, cancellationToken);
+                    await GenerateWeeklyTimelapses(snapshotTargetDir, cancellationToken);
                 }
                 catch (Exception e)
                 {
