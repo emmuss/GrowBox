@@ -34,6 +34,23 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
     public static async Task GenerateWeeklyTimelapses(string path, CancellationToken cancellationToken)
     {
         var snapshots = GetSnapshots(path);
+        var latestSnapshots = snapshots
+            .OrderByDescending(x => x.TimeStamp)
+            .ToArray();
+        if (snapshots.Length == 0)
+            return;
+        var until = latestSnapshots.FirstOrDefault().TimeStamp.AddDays(-7);
+        latestSnapshots = latestSnapshots.Where(x => x.TimeStamp > until)
+            .OrderBy(x => x.TimeStamp)
+            .ToArray();
+
+        if (latestSnapshots.Length > 0)
+        {
+            await ImagesToMp4.GenerateTimelapse(
+                Path.Combine(path, "latest.mp4"),
+                latestSnapshots.Select(x => x.Path).ToArray());
+        }
+
         while (snapshots.Length > 0)
         {
             DateTime weekBegin = snapshots.First().TimeStamp;
@@ -66,9 +83,7 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
             {
                 await ImagesToMp4.GenerateTimelapse(
                     timelapsePath,
-                    imagesForTimelapse, 
-                    cancellationToken,
-                    singleImageDuration: TimeSpan.FromSeconds(1d / 4d));
+                    imagesForTimelapse);
             }
             catch 
             {

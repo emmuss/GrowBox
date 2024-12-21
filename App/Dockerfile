@@ -14,8 +14,9 @@ WORKDIR /app
 COPY --from=build /app .
 RUN chown -R 1000:1000 ./wwwroot
 # install ffmpeg
-#RUN apt-get update --fix-missing \
-#    && apt install -y --no-install-recommends ffmpeg  \
-#    && apt clean
+RUN apt-get update --fix-missing \
+    && apt install -y --no-install-recommends ffmpeg  \
+    && apt install -y --no-install-recommends libgdiplus  \
+    && apt clean
  
 ENTRYPOINT ["dotnet", "./GrowBox.Server.dll"]
