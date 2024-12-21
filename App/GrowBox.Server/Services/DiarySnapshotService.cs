@@ -3,14 +3,17 @@ using GrowBox.Abstractions;
 using GrowBox.Abstractions.Model;
 using GrowBox.Abstractions.Model.EspApi;
 using Microsoft.EntityFrameworkCore;
+using SixLabors.ImageSharp;
 
 namespace GrowBox.Server.Services;
 
 public class DiarySnapshotService(ServerConfiguration config, IServiceProvider services, ILogger<DiarySnapshotService> logger) : BackgroundService
 {
+    private GrowBoxImageMutator mutator = new ();
     public const string DIARY_SNAPSHOT_FILE_MARKER = "gbd-";
     public const string DIARY_SNAPSHOT_FILE_EXTENSION = ".jpeg";
     public const string DIARY_TIMELAPSE_FILE_EXTENSION = ".mp4"; 
+    public const string DIARY_TIMELAPSE_SNAPSHOT_FILE_EXTENSION = ".webp"; 
     public const string DIARY_TIMELAPSE_DATETIME_SPLITTER = "_to_"; 
     public const string DIARY_SNAPSHOT_FILE_DATETIME_MASK = "yyyy-MM-ddTHH-mm-ss";
     public const string DIARY_SNAPSHOT_FILE_DATETIME_SEAR = "****-**-**T**-**-**";
@@ -100,38 +103,40 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
                     continue;
                 
                 int? growBoxLight = null;
+                GrowBoxEspRoot? root = null;
                 try
                 {
                     var api = new GrowboxEspApiService(http, growBox.GrowBoxUrl);
-                    var root = await api.Get(cancellationToken);
-                    growBoxLight = root?.Light;
+                    root = await api.Get(cancellationToken);
                 }
                 catch (Exception e)
                 {
                     logger.LogError(e, $"Error getting light state for {growBox.Name}. (Url: {growBox.GrowBoxUrl})");
                 }
 
-                if (growBoxLight == 255)
+                if (root == null || root.Light == 255)
                 {
                     continue;
                 }
                 
                 var compressedGuidForPath =  growBox.Id.ToBase64AsFileName();
+                var now = DateTime.Now;
                 logger.LogInformation($"Compressed Guid for path: {compressedGuidForPath}");
                 var snapshotTargetDir = Path.Combine(config.DiarySnapshotOutputPath, compressedGuidForPath);
                 var whoAmIFilePath = Path.Combine(snapshotTargetDir, "growbox.txt");
                 var snapshotFilePath = Path.Combine(snapshotTargetDir, 
-                    DIARY_SNAPSHOT_FILE_MARKER + DateTime.Now.ToString(DIARY_SNAPSHOT_FILE_DATETIME_MASK)+DIARY_SNAPSHOT_FILE_EXTENSION);
-
+                    DIARY_SNAPSHOT_FILE_MARKER + now.ToString(DIARY_SNAPSHOT_FILE_DATETIME_MASK)+DIARY_SNAPSHOT_FILE_EXTENSION);
+                var timelapseSnapshotFilePath = Path.Combine(snapshotTargetDir, 
+                    DIARY_SNAPSHOT_FILE_MARKER + now.ToString(DIARY_SNAPSHOT_FILE_DATETIME_MASK)+DIARY_TIMELAPSE_SNAPSHOT_FILE_EXTENSION);
                 try
                 {
                     if (!Directory.Exists(snapshotTargetDir))
                         Directory.CreateDirectory(snapshotTargetDir);
-
                     await File.WriteAllTextAsync(whoAmIFilePath, $"{growBox.Id}:{growBox.Name}", cancellationToken);
-
                     var snapshotBytes = await http.GetByteArrayAsync(snapshotUrl, cancellationToken);
                     await File.WriteAllBytesAsync(snapshotFilePath, snapshotBytes, cancellationToken);
+                    using var image = await mutator.Mutate(snapshotBytes, now, root, cancellationToken);
+                    await image.SaveAsWebpAsync(timelapseSnapshotFilePath, cancellationToken);
                 }
                 catch (Exception e)
                 {
@@ -140,7 +145,8 @@ public class DiarySnapshotService(ServerConfiguration config, IServiceProvider s
 
                 try
                 {
-                    //await GenerateWeeklyTimelapses(snapshotTargetDir, cancellationToken);
+                    //0
+                    //  await GenerateWeeklyTimelapses(snapshotTargetDir, cancellationToken);
                 }
                 catch (Exception e)
                 {

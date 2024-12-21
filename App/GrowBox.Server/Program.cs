@@ -1,7 +1,9 @@
 using GrowBox.Abstractions;
+using GrowBox.Abstractions.Model.EspApi;
 using GrowBox.Server;
 using GrowBox.Server.Services;
 using Microsoft.EntityFrameworkCore;
+using SixLabors.ImageSharp;
 
 // await TimelapseService.GenerateTimelapse(
 //     @"D:\timelapsetest.mp4", 
@@ -11,6 +13,13 @@ using Microsoft.EntityFrameworkCore;
 //     );
 
 //await DiarySnapshotService.GenerateWeeklyTimelapses(@"Z:\GrowBox\x52kmAC4JEWu0JaENCRRRA", CancellationToken.None);
+
+// var image = await new GrowBoxImageMutator().Mutate(
+//     File.ReadAllBytes(@"Z:\GrowBox\x52kmAC4JEWu0JaENCRRRA\gbd-2024-12-20T19-12-18.jpeg"), 
+//     DateTime.Now, 
+//     new GrowBoxEspRoot("Growbox Name", 0, 189, 23.4232534d, 77.55345d, 123,123,123,12,null),
+//     CancellationToken.None);
+// await image.SaveAsWebpAsync(@"Z:\GrowBox\x52kmAC4JEWu0JaENCRRRA\gbd-2024-12-20T19-12-18-test.webp");
 
 var builder = WebApplication.CreateBuilder(args);
 var serverConfiguration = new ServerConfiguration();
