@@ -10,6 +10,24 @@ namespace GrowBox.Server.Services;
 
 public static class ImageDrawingExtensions
 {
+    public static FontCollection? Fonts { get; set; }
+
+    public static Font Roboto20 { get; set; } = LoadFont("Roboto", 20);
+
+    private static Font LoadFont(string fontName, int size)
+    {
+        if (Fonts is null)
+        {
+            Fonts = new FontCollection();
+            Fonts.Add("Fonts/Roboto-Regular.ttf");
+        }
+
+        if (!Fonts.TryGet(fontName, out FontFamily family))
+            throw new ArgumentException("Font not found.", nameof(fontName));
+        
+        return family.CreateFont(size);
+    }
+
     public static float IncrementHeight(this ref float y, string text, TextOptions options, float add = 0)
     {
         return y += TextMeasurer.MeasureAdvance(text, options).Height + add;
@@ -42,7 +60,7 @@ public class GrowBoxImageMutator
     {
         using MemoryStream memoryStream = new(imageBytes);
         var image = await Image.LoadAsync<Rgba32>(memoryStream, cancellationToken);
-        var font = SystemFonts.CreateFont("Arial", 20);
+        var font = ImageDrawingExtensions.Roboto20;
         var textOptions = new TextOptions(font);
         float right = image.Width - 20;
         var textColor = Color.White;

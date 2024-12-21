@@ -47,6 +47,9 @@
       <None Update="FFMPEG\swscale-8.dll">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <None Update="Fonts\Roboto-Regular.ttf">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
     <ItemGroup>
