@@ -29,6 +29,8 @@ const char* pass = SECRET_PASS;    // your network password
 
 // Timezone rule / NTP Servers
 #define NTP_SERVERS "0.europe.pool.ntp.org", "pool.ntp.org", "time.nist.gov"
+// found on https://remotemonitoringsystems.ca/time-zone-abbreviations.php
+#define NTP_TIMEZONE "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00"
 #define NTP_TIMEZONE_HRS 1
 int NTP_DST_HRS = 0;
 #define NTP_MIN_VALID_EPOCH 1533081600
@@ -413,7 +415,7 @@ void configureRoutes() {
 // SETUP / LOOP #########################################
 
 void pumpDoStart(Pump* pump) {
-  time_t now = time(nullptr);
+  time_t now = getTimeWithDstUpdate();
   pump->isActive = true;
   pump->lastRun = now;
   pump->lastRunDuration = pump->duration;
@@ -479,50 +481,49 @@ void pumpSchedule(Pump* pump) {
   Serial.println("#################################");
 }
 
-
-int summertime_EU(time_t n) {  
-  struct tm * timeinfo;
-  timeinfo = gmtime(&n);                                // Also as localtime
-  byte hour = timeinfo->tm_hour;                        // Hours 0 to 23
-  byte day = timeinfo->tm_mday;                        // Day of month 1 to 31
-  byte month = timeinfo->tm_mon;                        // Months since Jan. 0 to 11
-  month += 1;                                           // Month now 1 to 12
-  byte year = timeinfo->tm_year + 1900;                 // Year with 4 digits
-  int tzHours = NTP_TIMEZONE_HRS;
-
-  if (month < 3 || month > 10) return 0; // keine Sommerzeit in Jan, Feb, Nov, Dez
-  if (month > 3 && month < 10) return 1; // Sommerzeit in Apr, Mai, Jun, Jul, Aug, Sep
-  if (month == 3 && (hour + 24 * day) >= (1 + tzHours + 24 * (31 - (5 * year / 4 + 4) % 7)) || month == 10 && (hour + 24 * day) < (1 + tzHours + 24 * (31 - (5 * year / 4 + 1) % 7)))
-    return 1;
-  else
-    return 0;
-}
-
 void initNtp() {
-  time_t n;
-  configTime(NTP_TIMEZONE_HRS * 3600, NTP_DST_HRS * 3600, NTP_SERVERS);
+  configTzTime(NTP_TIMEZONE, NTP_SERVERS);
   Serial.print("Wait for valid ntp response.");
-  while((n = time(nullptr)) < NTP_MIN_VALID_EPOCH) {
-    blink(500);
-    Serial.print(".");
-  }  
+  getTimeWithDstUpdate();  
   Serial.println();
-  getTimeWithDstUpdate();
 }
 
 time_t getTimeWithDstUpdate() {
-  time_t n;
-  time(&n);
-  int dst = summertime_EU(n);
-  if (dst != NTP_DST_HRS)
-  {
-    NTP_DST_HRS = dst;
-    configTime(NTP_TIMEZONE_HRS * 3600, NTP_DST_HRS * 3600, NTP_SERVERS);
-  }
-  while((time(&n)) < NTP_MIN_VALID_EPOCH) {
+  struct tm timeinfo = {0};
+  while (!getLocalTime(&timeinfo, 0)) {  // wait for NTP to sync
     blink(500);
-  }  
-  return n;
+  }
+  const uint16_t daysInMonth[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  time_t seconds = 0;
+  uint16_t year;
+  uint8_t month;
+
+  for (year = 1970; year < timeinfo.tm_year + 1900; year++) {
+    for (month = 0; month < 12; month++) {
+      seconds += daysInMonth[month] * 86400UL;
+
+      // Adjust for leap years
+      if (month == 1 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)) {
+        seconds += 86400UL;
+      }
+    }
+  }
+
+  for (month = 0; month < timeinfo.tm_mon; month++) {
+    seconds += daysInMonth[month] * 86400UL;
+      
+    // Adjust for leap years
+    if (month == 1 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)) {
+      seconds += 86400UL;
+    }
+  }
+
+  seconds += (timeinfo.tm_mday - 1) * 86400UL;
+  seconds += timeinfo.tm_hour * 3600UL;
+  seconds += timeinfo.tm_min * 60UL;
+  seconds += timeinfo.tm_sec;
+    
+  return seconds;
 }
 
 // blink with delay
