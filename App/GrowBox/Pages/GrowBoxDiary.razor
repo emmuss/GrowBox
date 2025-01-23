@@ -17,40 +17,54 @@
         
         @if (_diary.Timelapses.Length > 0)
         {
-            foreach (var timelapse in _diary.Timelapses)
-            {
-                <video width="auto" height="auto" controls>
-                    <source src="@timelapse.Path" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>   
-            }
+            <RadzenAccordion>
+                <Items>
+                    <RadzenAccordionItem Text="Timelapses" Icon="movie" CollapseTitle="Collapse Timelapses."
+                                         ExpandTitle="Expand Timelapses.">
+                        @if (_timelapse is not null)
+                        {
+                            <video width="auto" height="auto" controls style="max-width: 100%">
+                                <source src="@_timelapse.Path" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        }
+                        <div style="display: flex; align-items: center; flex-wrap: wrap; justify-content: start; gap: 5px">
+                        <RadzenButton Text="Hide" Click="@(() => { _timelapse = null; })" Style="width: 100px;"></RadzenButton>
+                        @{
+                            int week = 1;
+                            foreach (var timelapse in _diary.Timelapses)
+                            {
+                                string name = $"Week {week}";
+                                <RadzenButton Text="@name" Click="@(() => { _timelapse = timelapse; })" Style="width: 100px;"></RadzenButton>
+                                week++;
+                            }
+                        }
+                        </div>
+                    </RadzenAccordionItem>
+                </Items>
+            </RadzenAccordion>
         }
-
-        @* TODO: https://github.com/welisonmenezes/wm-blazor-slick-carousel/blob/master/WMBlazorSlickCarousel/WMBSC/BlazorSlickCarousel.razor*@
-        <RadzenDataList @ref=_dataList PageSize="1" WrapItems="true" AllowPaging="true" PagerPosition="PagerPosition.Top"
-                        Data="@_snapshots.OrderByDescending(x => x.Created)" TItem="DiarySnapshot">
-            <Template Context="snapshot">
-                <img src="@snapshot.Url" alt="@snapshot.Created" style="width: 100%; height: 45vh; object-fit:cover; border-radius: 8px; margin-top: 0.5rem"/>
-                <div style="background-color: var(--rz-paginator-background-color); border-top: var(--rz-paginator-border); border-radius: 0; display: flex; margin: 0.5rem 0 0 0;justify-content: center; align-items: center">
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Style="width: 100%">
-                        <RadzenText Text="@snapshot.Created.ToString("f")" Style="margin-bottom: 0"/>
-                        <a href="@snapshot.Url" target="_blank">
-                            <RadzenIcon Icon="attach_file"/>
-                        </a>
-                    </RadzenStack>
-                </div>
-            </Template>
-        </RadzenDataList>
-        @if (_snapShotFilters.Count > 0)
-        {
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceEvenly" Wrap="FlexWrap.Wrap">
-                @foreach (var filter in _snapShotFilters)
+        
+        <RadzenCarousel Auto="false" PagerOverlay="false" AllowPaging="false" ButtonShade="Shade.Default">
+            <Items>
+                @foreach (var snapshot in _snapshots.OrderByDescending(x => x.Created))
                 {
-                    var btnStyle = filter.FilterName == _activeFilterName ? ButtonStyle.Primary : ButtonStyle.Dark;
-                    <RadzenButton Text="@filter.FilterName" ButtonStyle="@btnStyle" Click=@(() => SetFilter(filter))/>
+                    <RadzenCarouselItem>
+                        <div>
+                            <img src="@snapshot.Url" alt="@snapshot.Created" style="width: 98%; height: 45vh; object-fit:cover; border-radius: 8px; margin-top: 0.5rem"/>
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="width: 100%">
+                                <a href="@snapshot.Url" target="_blank">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center">
+                                            <RadzenText Text="@snapshot.Created.ToString("f")" Style="margin-bottom: 0"/>
+                                            <RadzenIcon Icon="attach_file" IconStyle="IconStyle.Light"/>
+                                    </RadzenStack>
+                                </a>
+                            </RadzenStack>
+                        </div>
+                    </RadzenCarouselItem>
                 }
-            </RadzenStack>
-        }
+            </Items>
+        </RadzenCarousel>
     </RadzenStack>    
 }
 
@@ -58,6 +72,7 @@
 @code
 {
     private Diary? _diary;
+    private DiaryTimelapse? _timelapse;
     private IEnumerable<DiarySnapshot> _snapshots = [];
     private string _activeFilterName = "";
     private RadzenDataList<DiarySnapshot>? _dataList;
