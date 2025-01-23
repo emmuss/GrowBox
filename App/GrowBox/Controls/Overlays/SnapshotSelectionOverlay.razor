@@ -5,32 +5,33 @@
 @inherits OverlayDataBase<SnapshotSelection>
 @inject MinimalHttpClient<DiaryRequest, Diary> DiaryService
 
-<RadzenCard style="margin:0.5rem; padding:0.5rem; max-width: 560px">
+<RadzenCard style="margin:0.5rem; padding:0.5rem; width: 90vw; max-width: 560px">
     <div style="display: flex; align-items: center; flex-wrap: nowrap; justify-content: flex-end; margin-bottom: 0.5rem">
         <RadzenText TextStyle="TextStyle.Overline" Text="Choose Snapshot" style="flex: 1; text-overflow: ellipsis; text-wrap: none; overflow:hidden;"/>
         <div style="flex: 0 0 0.5rem;">
         </div>
-        <RadzenButton Click="@(async () => { OverlayData = null; Fail();})" Icon="close" ButtonStyle="ButtonStyle.Light" style="width: 100%; flex: 0 0 32px;"/>
+        <RadzenButton Click="@(() => { OverlayData = null; Fail();})" Icon="close" ButtonStyle="ButtonStyle.Light" style="width: 100%; flex: 0 0 32px;"/>
     </div>
     @if (_diary != null) 
     {
-        @if (_snapShotFilters.Count > 0)
-        {
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceEvenly" Wrap="FlexWrap.Wrap">
-                @foreach (var filter in _snapShotFilters)
+        <RadzenCarousel Auto="false" PagerOverlay="false" AllowPaging="false" ButtonShade="Shade.Default">
+            <Items>
+                @foreach (var snapshot in _snapshots.OrderByDescending(x => x.Created).Take(100))
                 {
-                    var btnStyle = filter.FilterName == _activeFilterName ? ButtonStyle.Primary : ButtonStyle.Dark;
-                    <RadzenButton Text="@filter.FilterName" ButtonStyle="@btnStyle" Click=@(() => SetFilter(filter))/>
+                    <RadzenCarouselItem>
+                        <div>
+                            <img src="@snapshot.Url" alt="@snapshot.Created.ToString("f")" 
+                                 style="width: 100%; max-width: 520px; height: 45vh; object-fit:cover; border-radius: 8px; margin-top: 0.5rem"/>
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" 
+                                         Style="width: 100%; margin-top: 0.5rem">
+                                <RadzenText Text="@snapshot.Created.ToString("f")" Style="margin-bottom: 0"/>
+                                <RadzenButton Text="Select" Click="@(() => SelectSnapshot(snapshot))" />
+                            </RadzenStack>
+                        </div>
+                    </RadzenCarouselItem>
                 }
-            </RadzenStack>
-        }
-        <RadzenDataList @ref=_dataList PageSize="12" WrapItems="true" AllowPaging="true" PagerPosition="PagerPosition.Top"
-                        
-                        Data="@_snapshots.OrderByDescending(x => x.Created)" TItem="DiarySnapshot">
-            <Template Context="snapshot">
-                <img class="selection-snapshot" src="@snapshot.Url" alt="@snapshot.Created" @onclick="@(() => SelectSnapshot(snapshot))" />
-            </Template>
-        </RadzenDataList>
+            </Items>
+        </RadzenCarousel>
     }
 </RadzenCard>
 
@@ -39,21 +40,11 @@
 {
     private Diary? _diary;
     private IEnumerable<DiarySnapshot> _snapshots = [];
-    private string _activeFilterName = "";
-    private RadzenDataList<DiarySnapshot>? _dataList;
 
-    private readonly List<(IEnumerable<DiarySnapshot> Snapshots, string FilterName)> _snapShotFilters = [];
-
-    private void SetFilter((IEnumerable<DiarySnapshot> Snapshots, string FilterName) filter)
-    {
-        _activeFilterName = filter.FilterName;
-        _snapshots = filter.Snapshots;
-        if (_dataList is not null)
-            _dataList.CurrentPage = 0;
-    }
 
     private void SelectSnapshot(DiarySnapshot diarySnapshot)
     {
+        Console.WriteLine("wtf");
         if (OverlayData is null) return;
         OverlayData.DiarySnapshot = diarySnapshot;
         Succeed();
@@ -72,21 +63,7 @@
             await base.OnParametersSetAsync();
             return;
         }
-
         _snapshots = _diary.Snapshots;
-        _activeFilterName = "All";
-        _snapShotFilters.Clear();
-        _snapShotFilters.Add((_diary.Snapshots, "All"));
-        foreach (var snapshotGroup in _diary.Snapshots
-                     .OrderByDescending(x => x.Created)
-                     .GroupBy(x => x.Created.Date))
-        {
-            var filterName = snapshotGroup.Key.ToString("d");
-            if (snapshotGroup.Key > DateTime.Now.Date - TimeSpan.FromDays(7))
-                filterName = snapshotGroup.Key.ToString("dddd");
-            _snapShotFilters.Add((snapshotGroup, filterName));
-        }
-        
         await base.OnParametersSetAsync();
     }
 }
