@@ -19,17 +19,16 @@
 
 
 <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
-@if (_growBox != null && _growBoxRoot != null) 
+@if (GrowBoxId != Guid.Empty)
 {
     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
-        @if (!string.IsNullOrEmpty(_growBox.WebCamSnapshotUrl))
-        {
-            <RadzenButton Icon="photo_library" ButtonStyle="ButtonStyle.Secondary" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_growBox.Id}/diary"))/>
-        }
-        <RadzenButton Icon="park" ButtonStyle="ButtonStyle.Secondary" Click="@(() => NavigationManager.NavigateTo($"/growbox/{_growBox.Id}/grows"))" />
-        
-        <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_growBox.Id}/settings"))/>
+        <RadzenButton Icon="photo_library" ButtonStyle="ButtonStyle.Secondary" Click=@(() => NavigationManager.NavigateTo($"/growbox/{GrowBoxId}/diary"))/>
+        <RadzenButton Icon="park" ButtonStyle="ButtonStyle.Secondary" Click="@(() => NavigationManager.NavigateTo($"/growbox/{GrowBoxId}/grows"))" />        
+        <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{GrowBoxId}/settings"))/>
     </RadzenStack>
+}
+@if (_growBox != null && _growBoxRoot != null) 
+{
     <RadzenCard Variant="Variant.Filled">
         <RadzenStack Gap="0.5rem">
             <RadzenText TextStyle="TextStyle.Subtitle1" TextAlign="TextAlign.Center" style="margin-bottom: 0;">@_growBox.Name</RadzenText>
@@ -83,11 +82,11 @@
                 </a>
             }
         </RadzenStack>
-    </RadzenCard>    
-}
+    </RadzenCard>
     <RadzenCard Variant="Variant.Filled">
         <GrowBoxChart @ref="_chart"/>
     </RadzenCard>
+}
 </RadzenStack>
 
 
