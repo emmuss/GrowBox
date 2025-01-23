@@ -491,7 +491,7 @@ void initNtp() {
 time_t getTimeWithDstUpdate() {
   struct tm timeinfo = {0};
   while (!getLocalTime(&timeinfo, 0)) {  // wait for NTP to sync
-    blink(500);
+    delay(500);
   }
   const uint16_t daysInMonth[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
   time_t seconds = 0;

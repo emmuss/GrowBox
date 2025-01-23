@@ -1,4 +1,4 @@
-﻿@using GrowBox.Abstractions.Model
+@using GrowBox.Abstractions.Model
 @using Blazor.MinimalApi.Client
 @using GrowBox.Controls.Overlay
 @using GrowBox.Controls.Overlays
@@ -38,7 +38,7 @@
                             <RadzenButton Icon="save" Click="@(async () => await CreateOrUpdateNote())"/>
                             <RadzenDatePicker @bind-Value=@_editNote.Created ShowTime="true" ShowSeconds="false" HoursStep="1" MinutesStep="10" SecondsStep="1" DateFormat="dd.MM.yyyy HH:mm" Name="DatePickerWithTime"/>
                         </RadzenStack>
-                        <RadzenHtmlEditor @bind-Value=@_editNote.Text style="height: 400px;" UploadUrl="upload/image" Execute="@OnExecute">
+                        <RadzenHtmlEditor @bind-Value=_editNote.Text style="height: 400px;" UploadUrl="upload/image" Execute="@OnExecute">
                             <RadzenHtmlEditorUndo/>
                             <RadzenHtmlEditorRedo/>
                             <RadzenHtmlEditorSeparator/>
@@ -59,15 +59,31 @@
         </RadzenCard>
         <RadzenTimeline AlignItems="AlignItems.Center" LinePosition="LinePosition.Alternate" style="max-width: 600px; margin: 0 auto;">
             <Items>
-                @foreach (var note in _grow.GrowDiaryNotes.OrderByDescending(x => x.Created))
+                @foreach (var note in GetViewNotes())
                 {
                     var noteTime = note.Created.ToString("d");
+                    var badgeStyle = note.Type switch
+                    {
+                        "week" => BadgeStyle.Success,
+                        _ => BadgeStyle.Info
+                    };
+                    var pointStyle = note.Type switch
+                    {
+                        "week" => PointStyle.Success,
+                        _ => PointStyle.Info
+                    };
+                    var pointSize = note.Type switch
+                    {
+                        "week" => PointSize.Large,
+                        _ => PointSize.Medium
+                    };
                     if (note.Created > DateTime.Now.Date - TimeSpan.FromDays(7))
-                        noteTime = note.Created.ToString("dddd") + " - " + note.Created.ToString("t");
-                    <RadzenTimelineItem @key="note.Id" Size="PointSize.Medium" PointStyle="PointStyle.Info">
+                        noteTime = note.Created.ToString("dddd")
+                            + (note.Type == "week" ? "" : " - " + note.Created.ToString("t"));
+                    <RadzenTimelineItem @key="note.Id" Size="@pointSize" PointStyle="@pointStyle">
                         <LabelContent>
                             <RadzenBadge 
-                                BadgeStyle="BadgeStyle.Info" 
+                                BadgeStyle="@badgeStyle" 
                                 IsPill="true" 
                                 Text="@noteTime" 
                                 Style="cursor:pointer;"
@@ -85,13 +101,46 @@
 {
     private Grow? _grow;
     private GrowDiaryNote _editNote = default!;
-    private bool _accordionExpanded = false;
+    private bool _accordionExpanded;
     
     [Parameter] 
     public Guid GrowId { get; set; }
 
+    private GrowDiaryNote[] GetViewNotes()
+    {
+        if (_grow == null) return [];
+        List<GrowDiaryNote> notes = [.._grow.GrowDiaryNotes ?? []];
+        var growFrom = _grow.Created;
+        var now = DateTime.Now;
+        int week = 0;
+        while (growFrom < now)
+        {
+            if (week > 0)
+            {
+                notes.Add(new ()
+                {
+                    Created = growFrom, 
+                    GrowId = _grow.Id,
+                    Id = Guid.NewGuid(),
+                    Updated = growFrom,
+                    Text = $"<span style=\"font-weight: bold;\">Week {week}</span>",
+                    Type = "week"
+                });
+            }
+            week++;
+            growFrom = growFrom.AddDays(7);
+        }
+
+        return notes.OrderByDescending(x => x.Created).ToArray();
+    }
+
     private async Task EditNote(GrowDiaryNote note)
     {
+        if (note.Type == "week")
+        {
+            return;
+        }
+
         _editNote = note;
         _accordionExpanded = true;
         await Js.InvokeVoidAsync("eval", "document.getElementById('app-body').scrollTop = 0;");
