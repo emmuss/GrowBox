@@ -231,113 +231,73 @@ void handlePumpTest() {
   return;
 }
 
-void handlePumpTestAll() {
-  Serial.println("handlePumpTestAll"); 
+void handlePumpsSet() {
+  Serial.println("handlePumpsSet");  
   JSONVar jsonInput;
-  if (!serverParseJson(&jsonInput))
-    return;
-
-  int pumpDuration = 0;
-  if (jsonInput.hasOwnProperty("duration")) { 
-    pumpDuration = (int)jsonInput["duration"];
-  }
-
-  if (pumpDuration > 0) {
-    for (int i = 0; i < pumpCount; i++)
-    {
-      Pump* pump = &context.pumps[i];
-      pump->duration = pumpDuration;
-      pumpDoStart(pump);
-    }
-    serverSendContext();
-    delay(pumpDuration * 1000);
-    for (int i = 0; i < pumpCount; i++)
-    {
-      Pump* pump = &context.pumps[i];
-      pump->duration = pumpDuration;
-      pumpDoStop(pump);
-    }
+  if (!serverParseJson(&jsonInput)){
+    serverSendInvalidRequest();
     return;
   }
-  serverSendInvalidRequest();
+  if (!jsonInput.hasOwnProperty("pumps")){
+    serverSendInvalidRequest();
+    return;
+  }
+  JSONVar pumps = jsonInput["pumps"];
+  for (int i = 0; i < pumps.length(); i++) {
+    JSONVar pump = pumps[i];
+    bool contextChanged = handlePumpSetJson(&pump);  
+    if (!contextChanged) {
+      serverSendInvalidRequest();
+      return;
+    }
+  }
+  contextSaveChanges();
+  serverSendContext();
 }
 
 void handlePumpSet() {
-  Serial.println("Handling Schedule Set Request"); 
+  Serial.println("handlePumpSet"); 
   JSONVar jsonInput;
-  if (!serverParseJson(&jsonInput))
-    return;
-
-  if (!jsonInput.hasOwnProperty("id")) {
+  if (!serverParseJson(&jsonInput)) {
     serverSendInvalidRequest();
     return;
   }
-
-  int pumpId = (int)jsonInput["id"];
-  if (pumpId < 0 || pumpId >= pumpCount) {
+  
+  bool contextChanged = handlePumpSetJson(&jsonInput);  
+  if (!contextChanged) {
     serverSendInvalidRequest();
     return;
+  }
+  contextSaveChanges();
+  serverSendContext();
+}
+
+bool handlePumpSetJson(JSONVar* jsonPump) { 
+  if (!jsonPump->hasOwnProperty("id")) {
+    return false;
+  }
+  int pumpId = (int)(*jsonPump)["id"];
+  if (pumpId < 0 || pumpId >= pumpCount) {
+    return false;
   }
 
   Pump* pump = &context.pumps[pumpId];
-  bool scheduleChanged = false;
-  if (jsonInput.hasOwnProperty("autoPumpBegin")) { 
-    pump->autoPumpBegin = (int)jsonInput["autoPumpBegin"];
+  bool contextChanged = false;
+  if (jsonPump->hasOwnProperty("autoPumpBegin")) { 
+    pump->autoPumpBegin = (int)(*jsonPump)["autoPumpBegin"];
     Serial.print("autoPumpBegin set to ");
     Serial.println(pump->autoPumpBegin);
-    scheduleChanged = true;
+    contextChanged = true;
   }
    
-  if (jsonInput.hasOwnProperty("duration")) { 
-    pump->duration = (int)jsonInput["duration"];
+  if (jsonPump->hasOwnProperty("duration")) { 
+    pump->duration = (int)(*jsonPump)["duration"];
     Serial.print("duration set to ");
     Serial.println(pump->duration);
-    scheduleChanged = true;
+    contextChanged = true;
   }
 
-  if (scheduleChanged) {
-    contextSaveChanges();
-    serverSendContext();
-    return;
-  }
-  serverSendInvalidRequest();
-}
-
-void handlePumpSetAll() {
-  Serial.println("handlePumpSetAll"); 
-  JSONVar jsonInput;
-  if (!serverParseJson(&jsonInput))
-    return;
-
-  int autoPumpBegin = -1337;
-  int duration = -1337;
-  bool scheduleChanged = false;
-  if (jsonInput.hasOwnProperty("autoPumpBegin")) { 
-    autoPumpBegin = (int)jsonInput["autoPumpBegin"];
-    scheduleChanged = true;
-  }
-   
-  if (jsonInput.hasOwnProperty("duration")) { 
-    duration = (int)jsonInput["duration"];
-    scheduleChanged = true;
-  }
-
-  for (int i = 0; i < pumpCount; i++) {
-    Pump* pump = &context.pumps[i];
-    if (autoPumpBegin != -1337) {
-      pump->autoPumpBegin = autoPumpBegin;
-      Serial.print("autoPumpBegin set to ");
-      Serial.println(autoPumpBegin);
-    }
-    if (duration != -1337) {
-      pump->duration = duration;
-      Serial.print("duration set to ");
-      Serial.println(duration);
-    }
-  }
-  
-  contextSaveChanges();
-  serverSendContext();
+  return contextChanged;
 }
 
 void handleSetTelemetryCallback() {
@@ -405,9 +365,8 @@ void configureRoutes() {
   server.on("/get", handleGet);
   server.on("/telemetry/callback", HTTP_POST, handleSetTelemetryCallback);
   server.on("/pump/set", HTTP_POST, handlePumpSet);
-  server.on("/pump/set/all", HTTP_POST, handlePumpSetAll);
   server.on("/pump/test", HTTP_POST, handlePumpTest);
-  server.on("/pump/test/all", HTTP_POST, handlePumpTestAll);
+  server.on("/pumps/set", HTTP_POST, handlePumpsSet);
 
   server.onNotFound(handleNotFound);
 }

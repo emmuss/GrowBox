@@ -72,26 +72,21 @@
     
     private async Task UpdatePumps()
     {
-        if (_waterPumpsEsp is null) return;
-        WaterPumpsEspRoot? last = null;
-
+        if (_waterPumpsEsp is null || 
+            _waterPumpsRoot?.Pumps is null ||
+            _waterPumpsRoot.Pumps.Length <= 0) 
+            return;
         try
         {
-            foreach (var pump in _waterPumpsRoot?.Pumps ?? Array.Empty<WaterPump>())
-            {
-                last = await _waterPumpsEsp.Set(pump);
-                await Task.Delay(50);
-            }
 
-            if (last is not null)
-            {
-                await UpdateWaterPumpsData(last);
-            }
+            var root = await _waterPumpsEsp.Set(new WaterPumps(_waterPumpsRoot.Pumps));
+            if (root is null) throw new Exception("Water pumps response null.");
+            await UpdateWaterPumpsData(root);
             
             var message = new NotificationMessage
             {
                 Severity = NotificationSeverity.Success,
-                Summary = $"Waterpumps update",
+                Summary = $"Water pumps update",
                 Detail = "Success.",
                 Duration = 2000
             };
@@ -102,7 +97,7 @@
             var message = new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = $"Waterpumps update",
+                Summary = $"Water pumps update",
                 Detail = "Failed.",
                 Duration = 2000
             };
@@ -114,8 +109,8 @@
     {
         Confirm confirm = new()
         {
-            Caption = $"WaterPump {pump.Id} Identification",
-            Message = $"Are you sure you want to identify Water Pump {pump.Id}?",
+            Caption = $"Water pump {pump.Id} Identification",
+            Message = $"Are you sure you want to identify water pump {pump.Id}?",
             FailButtonStyle = ButtonStyle.Light,
             FailText = "Cancel",
             FailIcon = "",
@@ -141,7 +136,7 @@
             var message = new NotificationMessage
             {
                 Severity = NotificationSeverity.Success,
-                Summary = $"Waterpump {pump.Id} Identification",
+                Summary = $"Water pump {pump.Id} Identification",
                 Detail = "Success.",
                 Duration = 2000
             };
@@ -152,7 +147,7 @@
             var message = new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = $"Waterpump {pump.Id} Identification",
+                Summary = $"Water pump {pump.Id} Identification",
                 Detail = "Failed. Message: " + e.Message,
                 Duration = 2000
             };
@@ -179,8 +174,8 @@
             var message = new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = $"Waterpumps",
-                Detail = "Can't connect to Waterpumps at " + WaterPumpsUrl + " Message: " + e.Message,
+                Summary = $"Water pumps",
+                Detail = "Can't connect to Water pumps at " + WaterPumpsUrl + " Message: " + e.Message,
                 Duration = 2000
             };
             NotificationService.Notify(message);

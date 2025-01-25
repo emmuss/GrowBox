@@ -22,3 +22,8 @@ public record WaterPump(
     [property: JsonPropertyName("autoPumpBegin")]
     public required int AutoPumpBegin { get; set; } = AutoPumpBegin;
 };
+
+public record WaterPumps(
+    [property: JsonPropertyName("pumps")] 
+    IEnumerable<WaterPump> Pumps
+);
