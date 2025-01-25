@@ -45,9 +45,17 @@
             </RadzenAccordion>
         }
         
+        <RadzenDatePicker
+            @bind-Value=@_selectedDateTime
+            Min="_dateTimeMin"
+            Max="_dateTimeMax"
+            DateRender="DateRender"
+            Name="DatePickerMinMax"
+            DateFormat="d"/>
+        
         <RadzenCarousel Auto="false" PagerOverlay="false" AllowPaging="false" ButtonShade="Shade.Default">
             <Items>
-                @foreach (var snapshot in _snapshots.OrderByDescending(x => x.Created))
+                @foreach (var snapshot in _snapshotsMap[_selectedDateTime].OrderByDescending(x => x.Created))
                 {
                     <RadzenCarouselItem>
                         <div>
@@ -73,51 +81,55 @@
 {
     private Diary? _diary;
     private DiaryTimelapse? _timelapse;
-    private IEnumerable<DiarySnapshot> _snapshots = [];
-    private string _activeFilterName = "";
-    private RadzenDataList<DiarySnapshot>? _dataList;
+    private DateTime[] _allDays = [];
+    private DateTime _selectedDateTime = DateTime.MinValue;
+    private DateTime _dateTimeMin = DateTime.MinValue;
+    private DateTime _dateTimeMax = DateTime.MaxValue;
+    private Dictionary<DateTime, DiarySnapshot[]> _snapshotsMap = [];
     
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
-
-    private readonly List<(IEnumerable<DiarySnapshot> Snapshots, string FilterName)> _snapShotFilters = [];
-
-    private void SetFilter((IEnumerable<DiarySnapshot> Snapshots, string FilterName) filter)
-    {
-        _activeFilterName = filter.FilterName;
-        _snapshots = filter.Snapshots;
-        if (_dataList is not null)
-            _dataList.CurrentPage = 0;
-    }
-
+    
     protected override async Task OnParametersSetAsync()
     {
+        await base.OnParametersSetAsync();
         if (GrowBoxId == Guid.Empty)
         {
-            await base.OnParametersSetAsync();
             return;
         }
-
         _diary = await DiaryService.Get(new DiaryRequest(GrowBoxId));
         if (_diary == null)
         {
-            await base.OnParametersSetAsync();
             return;
         }
 
-        _snapshots = _diary.Snapshots;
-        _activeFilterName = "All";
-        _snapShotFilters.Clear();
-        _snapShotFilters.Add((_diary.Snapshots, "All"));
-        foreach (var snapshotGroup in _diary.Snapshots
-                     .OrderByDescending(x => x.Created)
-                     .GroupBy(x => x.Created.Date))
+        _snapshotsMap = _diary.Snapshots
+            .OrderByDescending(x => x.Created)
+            .GroupBy(x => x.Created.Date)
+            .ToDictionary(x => x.Key, x => x.ToArray());
+
+        _allDays = _snapshotsMap.Select(d => d.Key).ToArray();
+        _dateTimeMin = _snapshotsMap.LastOrDefault().Key;
+        _dateTimeMax = _snapshotsMap.FirstOrDefault().Key;
+        var first = _snapshotsMap.FirstOrDefault();
+        _selectedDateTime = first.Key;
+    }
+    
+    private void DateRender(DateRenderEventArgs args)
+    {
+        var disabled = !_allDays.Contains(args.Date.Date);
+
+        if (_dateTimeMin == args.Date.Date)
         {
-            var filterName = snapshotGroup.Key.ToString("d");
-            if (snapshotGroup.Key > DateTime.Now - TimeSpan.FromDays(7))
-                filterName = snapshotGroup.Key.ToString("dddd");
-            _snapShotFilters.Add((snapshotGroup, filterName));
+            args.Attributes.Add("style", "background-color: #347736;");
+        } 
+        else if (args.Date.Date > _dateTimeMin && args.Date.Date < _dateTimeMax)
+        {
+            if ((args.Date.Date - _dateTimeMin).TotalDays % 7 == 0)
+            {
+                args.Attributes.Add("style", "background-color: #1666a5;");
+            }
         }
-        
-        await base.OnParametersSetAsync();
+
+        args.Disabled = disabled || args.Disabled;
     }
 }

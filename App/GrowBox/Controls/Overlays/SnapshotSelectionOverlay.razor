@@ -16,7 +16,7 @@
                 Max="_dateTimeMax"
                 DateRender="DateRender"
                 Name="DatePickerMinMax"
-                ShowTime="false"/>
+                DateFormat="d"/>
         }       
         <div style="flex: 0 0 0.5rem;"></div>
         <RadzenButton Click="@(() => { OverlayData = null; Fail();})" Icon="close" ButtonStyle="ButtonStyle.Light" style="width: 100%; flex: 0 0 32px;"/>
@@ -103,8 +103,6 @@
         _allDays = _snapshotsMap.Select(d => d.Key).ToArray();
         _dateTimeMin = _snapshotsMap.LastOrDefault().Key;
         _dateTimeMax = _snapshotsMap.FirstOrDefault().Key;
-        Console.WriteLine("min: " + _dateTimeMin);
-        Console.WriteLine("max: " + _dateTimeMax);
         var first = _snapshotsMap.FirstOrDefault();
         _selectedDateTime = first.Key;
 

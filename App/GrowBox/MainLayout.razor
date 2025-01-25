@@ -17,7 +17,7 @@
             </RadzenStack>
         </RadzenHeader>
         <RadzenSidebar @bind-Expanded="@_isSidebarExpanded">
-            <NavigationPanel SelectedNavigationItemChanged="@((item) => { _selectedNavigationItem = item; })" />
+            <NavigationPanel SelectedNavigationItemChanged="@((item) => { _selectedNavigationItem = item; _isSidebarExpanded = false; })" />
         </RadzenSidebar>
         <RadzenBody id="app-body" >
             @Body
@@ -37,5 +37,5 @@
 @code {
     string HeaderLabel => "GrowBox Home" + (_selectedNavigationItem == null ? string.Empty : (" - " + _selectedNavigationItem.Text));
     NavigationItem? _selectedNavigationItem = null;
-    bool _isSidebarExpanded = true;
+    bool _isSidebarExpanded = false;
 }
