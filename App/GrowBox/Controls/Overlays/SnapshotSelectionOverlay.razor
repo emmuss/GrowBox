@@ -14,9 +14,15 @@
     </div>
     @if (_diary != null) 
     {
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.5rem" class="rz-p-sm-12">
+            <RadzenLabel Text="From" Component="DropDownFiltering" />
+            <RadzenDropDown FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
+                            Data=@_snapshotsMap TextProperty="Key" ValueProperty="Value" 
+                            @bind-Value=_snapshots Style="width: 100%; max-width: 400px;" Name="DropDownFiltering" />
+        </RadzenStack>
         <RadzenCarousel Auto="false" PagerOverlay="false" AllowPaging="false" ButtonShade="Shade.Default">
             <Items>
-                @foreach (var snapshot in _snapshots.OrderByDescending(x => x.Created).Take(100))
+                @foreach (var snapshot in _snapshots.OrderByDescending(x => x.Created))
                 {
                     <RadzenCarouselItem>
                         <div>
@@ -40,11 +46,11 @@
 {
     private Diary? _diary;
     private IEnumerable<DiarySnapshot> _snapshots = [];
+    private Dictionary<string, IEnumerable<DiarySnapshot>> _snapshotsMap = [];
 
 
     private void SelectSnapshot(DiarySnapshot diarySnapshot)
     {
-        Console.WriteLine("wtf");
         if (OverlayData is null) return;
         OverlayData.DiarySnapshot = diarySnapshot;
         Succeed();
@@ -63,7 +69,17 @@
             await base.OnParametersSetAsync();
             return;
         }
-        _snapshots = _diary.Snapshots;
+        foreach (var snapshotGroup in _diary.Snapshots
+                     .OrderByDescending(x => x.Created)
+                     .GroupBy(x => x.Created.Date))
+        {
+            var filterName = snapshotGroup.Key.ToString("d");
+            if (snapshotGroup.Key > DateTime.Now.Date - TimeSpan.FromDays(7))
+                filterName = snapshotGroup.Key.ToString("dddd");
+            _snapshotsMap.Add(filterName, snapshotGroup);
+        }
+        _snapshots = _snapshotsMap.FirstOrDefault().Value ?? [];
+
         await base.OnParametersSetAsync();
     }
 }
