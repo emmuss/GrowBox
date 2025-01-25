@@ -7,22 +7,25 @@
 
 <RadzenCard style="margin:0.5rem; padding:0.5rem; width: 90vw; max-width: 560px">
     <div style="display: flex; align-items: center; flex-wrap: nowrap; justify-content: flex-end; margin-bottom: 0.5rem">
-        <RadzenText TextStyle="TextStyle.Overline" Text="Choose Snapshot" style="flex: 1; text-overflow: ellipsis; text-wrap: none; overflow:hidden;"/>
-        <div style="flex: 0 0 0.5rem;">
-        </div>
+        <RadzenText TextStyle="TextStyle.Overline" Text="Snapshots" style="flex: 1; text-overflow: ellipsis; text-wrap: none; overflow:hidden;"/>
+        @if (_diary != null)
+        {
+            <RadzenDatePicker
+                @bind-Value=@_selectedDateTime
+                Min="_dateTimeMin"
+                Max="_dateTimeMax"
+                DateRender="DateRender"
+                Name="DatePickerMinMax"
+                ShowTime="false"/>
+        }       
+        <div style="flex: 0 0 0.5rem;"></div>
         <RadzenButton Click="@(() => { OverlayData = null; Fail();})" Icon="close" ButtonStyle="ButtonStyle.Light" style="width: 100%; flex: 0 0 32px;"/>
     </div>
     @if (_diary != null) 
-    {
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.5rem" class="rz-p-sm-12">
-            <RadzenLabel Text="From" Component="DropDownFiltering" />
-            <RadzenDropDown FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true"
-                            Data=@_snapshotsMap TextProperty="Key" ValueProperty="Value" 
-                            @bind-Value=_snapshots Style="width: 100%; max-width: 400px;" Name="DropDownFiltering" />
-        </RadzenStack>
+    { 
         <RadzenCarousel Auto="false" PagerOverlay="false" AllowPaging="false" ButtonShade="Shade.Default">
             <Items>
-                @foreach (var snapshot in _snapshots.OrderByDescending(x => x.Created))
+                @foreach (var snapshot in _snapshotsMap[_selectedDateTime].OrderByDescending(x => x.Created))
                 {
                     <RadzenCarouselItem>
                         <div>
@@ -45,8 +48,11 @@
 @code
 {
     private Diary? _diary;
-    private IEnumerable<DiarySnapshot> _snapshots = [];
-    private Dictionary<string, IEnumerable<DiarySnapshot>> _snapshotsMap = [];
+    private DateTime[] _allDays = [];
+    private DateTime _selectedDateTime = DateTime.MinValue;
+    private DateTime _dateTimeMin = DateTime.MinValue;
+    private DateTime _dateTimeMax = DateTime.MaxValue;
+    private Dictionary<DateTime, DiarySnapshot[]> _snapshotsMap = [];
 
 
     private void SelectSnapshot(DiarySnapshot diarySnapshot)
@@ -54,6 +60,25 @@
         if (OverlayData is null) return;
         OverlayData.DiarySnapshot = diarySnapshot;
         Succeed();
+    }  
+    
+    private void DateRender(DateRenderEventArgs args)
+    {
+        var disabled = !_allDays.Contains(args.Date.Date);
+
+        if (_dateTimeMin == args.Date.Date)
+        {
+            args.Attributes.Add("style", "background-color: #347736;");
+        } 
+        else if (args.Date.Date > _dateTimeMin && args.Date.Date < _dateTimeMax)
+        {
+            if ((args.Date.Date - _dateTimeMin).TotalDays % 7 == 0)
+            {
+                args.Attributes.Add("style", "background-color: #1666a5;");
+            }
+        }
+
+        args.Disabled = disabled || args.Disabled;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -69,16 +94,19 @@
             await base.OnParametersSetAsync();
             return;
         }
-        foreach (var snapshotGroup in _diary.Snapshots
-                     .OrderByDescending(x => x.Created)
-                     .GroupBy(x => x.Created.Date))
-        {
-            var filterName = snapshotGroup.Key.ToString("d");
-            if (snapshotGroup.Key > DateTime.Now.Date - TimeSpan.FromDays(7))
-                filterName = snapshotGroup.Key.ToString("dddd");
-            _snapshotsMap.Add(filterName, snapshotGroup);
-        }
-        _snapshots = _snapshotsMap.FirstOrDefault().Value ?? [];
+
+        _snapshotsMap = _diary.Snapshots
+            .OrderByDescending(x => x.Created)
+            .GroupBy(x => x.Created.Date)
+            .ToDictionary(x => x.Key, x => x.ToArray());
+
+        _allDays = _snapshotsMap.Select(d => d.Key).ToArray();
+        _dateTimeMin = _snapshotsMap.LastOrDefault().Key;
+        _dateTimeMax = _snapshotsMap.FirstOrDefault().Key;
+        Console.WriteLine("min: " + _dateTimeMin);
+        Console.WriteLine("max: " + _dateTimeMax);
+        var first = _snapshotsMap.FirstOrDefault();
+        _selectedDateTime = first.Key;
 
         await base.OnParametersSetAsync();
     }
