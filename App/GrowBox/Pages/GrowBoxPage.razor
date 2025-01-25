@@ -84,7 +84,7 @@
         </RadzenStack>
     </RadzenCard>
     <RadzenCard Variant="Variant.Filled">
-        <GrowBoxChart @ref="_chart"/>
+        <GrowBoxChart Data="_sensorReadings" />
     </RadzenCard>
 }
 </RadzenStack>
@@ -95,7 +95,7 @@
     private GrowBoxModel? _growBox;
     private GrowBoxEspRoot? _growBoxRoot;
     private WaterPumpsEspRoot? _waterPumpsRoot;
-    private GrowBoxChart? _chart;
+    private SensorReading[] _sensorReadings = [];
     private readonly Dictionary<int, double> _waterPumpActivities = new();
 
     TimeSpan _rise = TimeSpan.Zero;
@@ -199,13 +199,11 @@
         _rise = TimeSpan.FromSeconds(rise);
         _set = TimeSpan.FromSeconds(set);
         _sunDuration = _set - _rise;
-        var sensorReadings = composition.SensorReadings.OrderBy(x => x.Created).ToArray(); 
-        if (_chart is not null) 
-            await _chart.UpdateChart(sensorReadings);
+        _sensorReadings = composition.SensorReadings.OrderBy(x => x.Created).ToArray();
         _waterPumpActivities.Clear();
         foreach (var pump in _waterPumpsRoot?.Pumps ?? [])
         {
-            _waterPumpActivities.Add(pump.Id, GetWaterPumpActivity(sensorReadings, pump.Id));
+            _waterPumpActivities.Add(pump.Id, GetWaterPumpActivity(_sensorReadings, pump.Id));
         }
         await InvokeAsync(StateHasChanged);
     }

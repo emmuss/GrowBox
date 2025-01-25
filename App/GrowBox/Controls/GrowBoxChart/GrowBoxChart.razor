@@ -11,6 +11,7 @@
     private readonly string _chartId = "growbox-chart-" + Guid.NewGuid().ToString("N");
     private IJSObjectReference? _module;
     private bool _renderOnce = true;
+    [Parameter, EditorRequired] public SensorReading[] Data { get; set; } = [];
 
     protected override bool ShouldRender()
     {
@@ -27,17 +28,23 @@
             _module = await Js.InvokeAsync<IJSObjectReference>(
                 "import", "./Controls/GrowBoxChart/GrowBoxChart.razor.js");
             await _module.InvokeVoidAsync("createGrowBoxChart", _chartId);
+            if (Data.Length > 0)
+                await UpdateChart(Data);
         }
     }
 
-    public async Task UpdateChart(SensorReading[]? data)
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        await UpdateChart(Data);
+    }
+
+    private async Task UpdateChart(SensorReading[]? data)
     {
         if (_module is null || data is null)
         {
             return;
         }
-        
-
         await _module.InvokeVoidAsync("updateGrowBoxChart", _chartId, data);
     }
 
