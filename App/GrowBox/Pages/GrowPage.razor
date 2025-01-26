@@ -38,7 +38,7 @@
                             <RadzenButton Icon="save" Click="@(async () => await CreateOrUpdateNote())"/>
                             <RadzenDatePicker @bind-Value=@_editNote.Created ShowTime="true" ShowSeconds="false" HoursStep="1" MinutesStep="10" SecondsStep="1" DateFormat="dd.MM.yyyy HH:mm" Name="DatePickerWithTime"/>
                         </RadzenStack>
-                        <RadzenHtmlEditor @bind-Value=_editNote.Text style="height: 400px;" UploadUrl="upload/image" Execute="@OnExecute">
+                        <RadzenHtmlEditor @bind-Value=_editNote.Text style="height: 400px;" UploadUrl="upload/image" Execute="@OnExecute" Disabled="@(_editNote.Type == "grow-end")">
                             <RadzenHtmlEditorUndo/>
                             <RadzenHtmlEditorRedo/>
                             <RadzenHtmlEditorSeparator/>
@@ -50,6 +50,13 @@
                             <RadzenHtmlEditorCustomTool CommandName="InsertSnapshot" Icon="add_a_photo" Title="Insert snapshot"/>
                         </RadzenHtmlEditor>
                         <RadzenStack JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem" Style="width: 100%">
+                            <div class="rz-text-align-center">
+                                <RadzenCheckBox
+                                    @bind-Value:get="@(_editNote.Type == "grow-end")"
+                                    @bind-Value:set="@(x => _editNote.Type = x ? "grow-end" : "")"></RadzenCheckBox>
+                                <RadzenLabel Text="Grow End" class="rz-ms-2"/>
+                            </div>
+
                             <div> &nbsp; </div>
                             <RadzenButton Icon="delete_forever" ButtonStyle="ButtonStyle.Danger" Click="@(async () => await DeleteEditNote())"/>
                         </RadzenStack>
@@ -65,16 +72,19 @@
                     var badgeStyle = note.Type switch
                     {
                         "week" => BadgeStyle.Success,
+                        "grow-end" => BadgeStyle.Primary,
                         _ => BadgeStyle.Info
                     };
                     var pointStyle = note.Type switch
                     {
                         "week" => PointStyle.Success,
+                        "grow-end" => PointStyle.Primary,
                         _ => PointStyle.Info
                     };
                     var pointSize = note.Type switch
                     {
                         "week" => PointSize.Large,
+                        "grow-end" => PointSize.Large,
                         _ => PointSize.Medium
                     };
                     if (note.Created > DateTime.Now.Date - TimeSpan.FromDays(7))
@@ -111,9 +121,11 @@
         if (_grow == null) return [];
         List<GrowDiaryNote> notes = [.._grow.GrowDiaryNotes ?? []];
         var growFrom = _grow.Created;
-        var now = DateTime.Now;
+        var growEnd = DateTime.Now;
+        var growEndNote = notes.FirstOrDefault(x => x.Type == "grow-end");
+        if (growEndNote is not null) growEnd = growEndNote.Created;
         int week = 0;
-        while (growFrom < now)
+        while (growFrom < growEnd)
         {
             if (week > 0)
             {
@@ -179,6 +191,8 @@
         if (_grow == null) return;
         try
         {
+            if (_editNote.Type == "grow-end")
+                _editNote.Text = $"<span style=\"font-weight: bold;\">Grow End</span>";
             if (_editNote.Id == Guid.Empty)
                 _grow.GrowDiaryNotes.Add(_editNote);
             var result = await GrowWrite.Update(_grow);
