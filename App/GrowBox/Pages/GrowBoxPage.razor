@@ -35,8 +35,10 @@
             <RadzenText TextStyle="TextStyle.H5" TextAlign="TextAlign.Center" style="margin-bottom: 0; font-size: 3rem; font-weight: 100;">@Math.Round(_growBoxRoot.Temperature) °C</RadzenText>
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0">
                 <RadzenIcon Icon="water_drop"/> <span>@Math.Round(_growBoxRoot.Humidity, 1) %</span>
-                <span class="mx-2">|</span>
+                <span class="mx-2">&nbsp;|&nbsp;</span>
                 <span>@(Math.Round(_growBoxRoot.Pressure / 100, 1)) hpa</span>
+                <span class="mx-2">&nbsp;|&nbsp;</span>
+                <span>@(Math.Round(_growBoxRoot.VPD, 2)) VPD</span>
             </RadzenStack>
             @if (_waterPumpsRoot != null)
             {
@@ -84,7 +86,10 @@
         </RadzenStack>
     </RadzenCard>
     <RadzenCard Variant="Variant.Filled">
-        <GrowBoxChart Data="_sensorReadings" />
+        <GrowBoxTHLChart Data="_sensorReadings" />
+    </RadzenCard>
+    <RadzenCard Variant="Variant.Filled">
+        <GrowBoxVPDChart Data="_sensorReadings" />
     </RadzenCard>
 }
 </RadzenStack>
@@ -169,7 +174,7 @@
     {
         try
         {
-            List<string> types = ["temperature", "pressure", "light", "humidity"];
+            List<string> types = ["temperature", "pressure", "light", "humidity", "vpd"];
             if (waterPumpsEspRoot is not null)
             {
                 types.AddRange(

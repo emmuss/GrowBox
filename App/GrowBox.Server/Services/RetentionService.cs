@@ -59,6 +59,7 @@ public class RetentionService(ServerConfiguration config, IServiceProvider servi
                 AddReading("humidity", root.Humidity);
                 AddReading("heatIndex", root.HeatIndex);
                 AddReading("dewPoint", root.DewPoint);
+                AddReading("vpd", root.VPD);
                 AddReading("light", root.Light);
                 AddReading("fanSpeed", root.FanSpeed);
                 isContextChanged = true;

@@ -12,6 +12,7 @@ namespace GrowBox.Abstractions.Model.EspApi
         [property: JsonPropertyName("dewPoint")] double DewPoint,
         [property: JsonPropertyName("heatIndex")] double HeatIndex,
         [property: JsonPropertyName("timestamp")] int Timestamp,
+        [property: JsonPropertyName("vpd")] double VPD,
         [property: JsonPropertyName("lightSchedule")] LightSchedule LightSchedule
     );
 }

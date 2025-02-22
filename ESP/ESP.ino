@@ -62,9 +62,10 @@ struct Context
   float humidity;
   float dewPoint;
   float heatIndex;
+  double vpd;
 };
 const int CONTEXT_SIZE = sizeof(Context);
-const char * CONTEXT_MARKER = "GROO";
+const char * CONTEXT_MARKER = "GRO1";
 const int CONTEXT_MARKER_SIZE = 4;
 Context context;
 bool bmeAvailable = false;
@@ -124,6 +125,7 @@ void serverSendContext() {
         result += "\"pressure\":" + String(context.pressure) + ",";
         result += "\"timestamp\":" + String(context.timestamp) + ",";
         result += "\"dewPoint\":" + String(context.dewPoint) + ",";
+        result += "\"vpd\":" + String(context.vpd) + ",";
         result += "\"heatIndex\":" + String(context.heatIndex) + ",";
         result += "\"tzHrs\" :" + String(NTP_TIMEZONE_HRS) + ",";
         result += "\"dstHrs\" :" + String(NTP_DST_HRS) + ",";
@@ -332,8 +334,7 @@ time_t getTimeWithDstUpdate() {
 }
 
 // blink with delay
-void blink(unsigned int ms)
-{
+void blink(unsigned int ms) {
   unsigned int half = ms / 2;
 
   digitalWrite(pBuildinLed, LOW);
@@ -351,8 +352,7 @@ void blink(unsigned int ms)
 #define hi_coeff7   0.00122874
 #define hi_coeff8   0.00085282
 #define hi_coeff9  -0.00000199
-float HeatIndex(float temperature, float humidity)
-{
+float HeatIndex(float temperature, float humidity) {
   float heatIndex(NAN);
   if (isnan(temperature) || isnan(humidity)) 
   {
@@ -395,8 +395,7 @@ float HeatIndex(float temperature, float humidity)
   return (heatIndex - 32.0) * (5.0 / 9.0); /*conversion back to [°C]*/
 }
 
-float DewPoint(float temp, float hum)
-{
+float DewPoint(float temp, float hum) {
   // Equations courtesy of Brian McNoldy from http://andrew.rsmas.miami.edu;
   float dewPoint = NAN;
   if(!isnan(temp) && !isnan(hum))
@@ -407,6 +406,23 @@ float DewPoint(float temp, float hum)
 
   return dewPoint;
 }
+// Function to calculate Vapor Pressure Deficit (VPD)
+// Parameters:
+//  temperature: in degrees Celsius
+//  humidity: relative humidity in percentage
+double calculateVPD(double temperature, double humidity) {
+    // Calculate Saturation Vapor Pressure (Es) in kPa
+    double Es = 0.6108 * exp((17.27 * temperature) / (temperature + 237.3));
+
+    // Calculate Actual Vapor Pressure (Ea) in kPa
+    double Ea = (humidity / 100.0) * Es;
+
+    // Calculate VPD (kPa)
+    double VPD = Es - Ea;
+
+    return VPD; // Return VPD in kPa
+}
+
 
 void updateContext() {
   context.timestamp = getTimeWithDstUpdate();  
@@ -416,12 +432,14 @@ void updateContext() {
     context.temperature = bme.readTemperature();
     context.dewPoint = DewPoint(context.temperature, context.humidity);
     context.heatIndex = HeatIndex(context.temperature, context.humidity);
+    context.vpd = calculateVPD(context.temperature, context.humidity);
   } else {
     context.humidity = 0;
     context.pressure = 0;
     context.temperature = 0;
     context.dewPoint = 0;
     context.heatIndex = 0;
+    context.vpd = 0;
   }
 }
 
