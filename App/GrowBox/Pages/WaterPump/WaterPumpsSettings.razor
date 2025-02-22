@@ -37,7 +37,7 @@
                         <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
                             <RadzenSlider @bind-Value=@pump.Duration TValue="int" style="width: 100%; margin-left: 10px; margin-right: 16px" Step="60" Min="0" Max="@PumpMaximumSeconds"/>
                             <RadzenText TextStyle="TextStyle.Body1" TextAlign="TextAlign.Start" style="margin-bottom: 0; text-wrap: nowrap;">@(_waterPumpsRoot.PumpMilliLiterPerMinute * TimeSpan.FromSeconds(pump.Duration).TotalMinutes) ml</RadzenText>
-                            <RadzenButton Icon="labs" ButtonStyle="ButtonStyle.Danger" Click="async () => await TestPump(pump)"/>
+                            <RadzenButton Icon="labs" ButtonStyle="ButtonStyle.Secondary" Click="async () => await TestPump(pump)"/>
                         </div>
                         @if (pump.AutoPumpBegin > -1)
                         {

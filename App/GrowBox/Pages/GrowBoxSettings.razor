@@ -20,10 +20,47 @@
 @if (_growBoxRoot != null && _growBox != null) 
 {
     <RadzenStack Gap="1rem" JustifyContent="JustifyContent.Stretch">
+        @* HEADER *@
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Dark" Click=@(() => Js.InvokeVoidAsync("history.back")) />
             <RadzenButton Icon="settings" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo($"/growbox/{_growBox.Id}/edit")) />
         </RadzenStack>
+        @* VPD Control *@
+        <RadzenCard Variant="Variant.Filled">
+            <RadzenStack Gap="1rem">
+                <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
+                    <RadzenIcon Icon="water_voc" />
+                    <RadzenText TextStyle="TextStyle.Overline" TextAlign="TextAlign.Center" style="margin-bottom: 0;">VPD Control</RadzenText>
+                </div>
+                <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
+                    <RadzenCheckBox
+                        TValue="bool" Name="_isVPDControlActive"
+                        @bind-Value=@_isVPDControlActive/>
+                    <RadzenLabel Text="Enable VPD Control" Component="_isVPDControlActive" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
+                </div>
+                <RadzenSelectBar Size="ButtonSize.ExtraSmall" @bind-Value=_vdpPlantStage TValue="VPDControlPlantStage">
+                    <Items>
+                        <RadzenSelectBarItem Text="Prop." Value="VPDControlPlantStage.Propagation" />
+                        <RadzenSelectBarItem Text="Early Grow" Value="VPDControlPlantStage.EarlyGrow" />
+                        <RadzenSelectBarItem Text="Late Grow" Value="VPDControlPlantStage.LateGrow" />
+                        <RadzenSelectBarItem Text="Early Flower" Value="VPDControlPlantStage.EarlyFlower" />
+                        <RadzenSelectBarItem Text="Late Flower" Value="VPDControlPlantStage.LateFlower" />
+                    </Items>
+                </RadzenSelectBar>
+
+                <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
+                    <RadzenDatePicker TValue="DateTime"
+                                      DateFormat="d"
+                                      ShowTime="false"
+                                      ShowSeconds="false"
+                                      @bind-Value:get="@(_vdpPlantStageTimestamp.ToDateFromUnixSeconds())"
+                                      @bind-Value:set="@((value) => _vdpPlantStageTimestamp = value.ToUnixSecondsFromDate())"></RadzenDatePicker>
+                    <RadzenButton Text="Today" ButtonStyle="ButtonStyle.Secondary" Click="@(() => _vdpPlantStageTimestamp = DateTime.Now.Date.ToUnixSecondsFromDate())"/>
+                </div>
+                <RadzenButton Text="Set VPD Control " ButtonStyle="ButtonStyle.Success" Click="UpdateVPDControl"/>
+            </RadzenStack>
+        </RadzenCard>
+        @* FAN *@
         <RadzenCard Variant="Variant.Filled">
             <RadzenStack Gap="1rem">
                 <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
@@ -36,7 +73,7 @@
                 <RadzenButton Text="Set Fan Speed" ButtonStyle="ButtonStyle.Success" Click="UpdateFanSpeed"/>
             </RadzenStack>
         </RadzenCard>
-
+        @* LIGHT *@
         <RadzenCard Variant="Variant.Filled">
             <RadzenStack Gap="1rem">
                 <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
@@ -73,9 +110,9 @@
                 <RadzenButton Text="Set Light" ButtonStyle="ButtonStyle.Success" Click="UpdateLight"/>
             </RadzenStack>
         </RadzenCard>
-        
+        @* WATER PUMPS *@
         <WaterPumpsSettings WaterPumpsUrl="@(_growBox.WaterPumpsUrl)" />
-
+        @* DELETE *@
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
             <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Click=@(async () => { await DeleteGrowBox(); } ) />
         </RadzenStack>
@@ -85,6 +122,9 @@
 
 @code
 {
+    private VPDControlPlantStage _vdpPlantStage = VPDControlPlantStage.Propagation;
+    private int _vdpPlantStageTimestamp = 0;
+    private bool _isVPDControlActive = false;
     private Abstractions.Model.GrowBoxModel? _growBox;
     private GrowBoxEspRoot? _growBoxRoot;
     private IGrowBoxEsp? _growBoxService;
@@ -134,6 +174,8 @@
         var set = rise + (_growBoxRoot?.LightSchedule?.SunDuration ?? 64800);
         RiseAndSet = [rise, set];
         _sunScheduleEnabled = _growBoxRoot?.LightSchedule?.SunScheduleEnabled ?? false;
+        _vdpPlantStage = _growBoxRoot?.VPDControlPlantStage ?? VPDControlPlantStage.Propagation;
+        _vdpPlantStageTimestamp = _growBoxRoot?.VPDControlPlantStageTimestamp ?? 0;
         StateHasChanged();
     }
 
@@ -201,7 +243,7 @@
             {
                 Severity = NotificationSeverity.Error,
                 Summary = $"Fan speed update",
-                Detail = "Success.",
+                Detail = "Error.",
                 Duration = 2000
             };
             NotificationService.Notify(message);
@@ -217,5 +259,38 @@
         
         await App.DeleteGrowBox(_growBox); 
         NavigationManager.NavigateTo("/");
+    }
+
+    private async Task UpdateVPDControl()
+    {
+        if (_growBoxService is null)
+            return;
+
+        try
+        {
+            UpdateGrowBoxData(
+                await _growBoxService.SetVPDControl(new VPDControlSpeedReq((int)_vdpPlantStage, _vdpPlantStageTimestamp)));
+            
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "VPD Control update",
+                Detail = "Success.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+        }
+        catch (Exception e)
+        {
+            var message = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "VPD Control update",
+                Detail = "Error.",
+                Duration = 2000
+            };
+            NotificationService.Notify(message);
+            Logger.LogError(e, "Unable to update fan speed.");
+        }
     }
 }

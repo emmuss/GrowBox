@@ -25,7 +25,6 @@
 const char* hostname = "GrowBox01";
 const char* ssid = SECRET_SSID;    // your network SSID (name)
 const char* pass = SECRET_PASS;    // your network password
-const char* webcam = "http://192.168.178.200:8081/";
 
 // Timezone rule / NTP Servers
 #define NTP_SERVERS "0.europe.pool.ntp.org", "pool.ntp.org", "time.nist.gov"
@@ -63,9 +62,11 @@ struct Context
   float dewPoint;
   float heatIndex;
   double vpd;
+  int vpdControlPlantStage;
+  time_t vpdControlPlantStageTimestamp;
 };
 const int CONTEXT_SIZE = sizeof(Context);
-const char * CONTEXT_MARKER = "GRO1";
+const char * CONTEXT_MARKER = "GRO2";
 const int CONTEXT_MARKER_SIZE = 4;
 Context context;
 bool bmeAvailable = false;
@@ -89,13 +90,15 @@ void contextInit() {
     // Fan Speed, 255 = OFF, 0 = MAX.
     context.fanSpeed = 186;
     // light, 255 = OFF, 0 = MAX.
-    context.light = 103;
+    context.light = 255;
 
     context.sunrise = 6 * 60 * 60; // 21600
     context.sunDuration = 18 * 60 * 60; // 64800
     context.sunTargetLight = 103;
-    context.sunScheduleEnabled = true;
+    context.sunScheduleEnabled = false;
     context.dewPoint = 0;
+    context.vpdControlPlantStage = 0;
+    context.vpdControlPlantStageTimestamp = 0;
     context.heatIndex = 0;
     context.humidity = 0;
     context.temperature = 0;
@@ -125,6 +128,8 @@ void serverSendContext() {
         result += "\"pressure\":" + String(context.pressure) + ",";
         result += "\"timestamp\":" + String(context.timestamp) + ",";
         result += "\"dewPoint\":" + String(context.dewPoint) + ",";
+        result += "\"vpdControlPlantStage\":" + String(context.vpdControlPlantStage) + ",";
+        result += "\"vpdControlPlantStageTimestamp\":" + String(context.vpdControlPlantStageTimestamp) + ",";
         result += "\"vpd\":" + String(context.vpd) + ",";
         result += "\"heatIndex\":" + String(context.heatIndex) + ",";
         result += "\"tzHrs\" :" + String(NTP_TIMEZONE_HRS) + ",";
@@ -181,6 +186,32 @@ void handleFanSet() {
     contextSaveChanges();
     serverSendContext();
     return; 
+  }
+  serverSendInvalidRequest();
+}
+void handleVPDControlSet() {
+  Serial.println("Handling VPD Control Set Request"); 
+  JSONVar jsonInput;
+  if (!serverParseJson(&jsonInput))
+    return;
+   
+  bool changed = false;
+  if (jsonInput.hasOwnProperty("vpdControlPlantStage")) { 
+    context.vpdControlPlantStage = (int)jsonInput["vpdControlPlantStage"];
+    Serial.print("vpdControlPlantStage set to ");
+    Serial.println(context.vpdControlPlantStage);
+    changed = true;
+  }
+  if (jsonInput.hasOwnProperty("vpdControlPlantStageTimestamp")) { 
+    context.vpdControlPlantStageTimestamp = (long int)jsonInput["vpdControlPlantStageTimestamp"];
+    Serial.print("vpdControlPlantStageTimestamp set to ");
+    Serial.println(context.vpdControlPlantStageTimestamp);
+    changed = true;
+  }
+  if (changed) {
+    contextSaveChanges();
+    serverSendContext();
+    return;
   }
   serverSendInvalidRequest();
 }
@@ -281,6 +312,7 @@ void configureRoutes() {
   
   server.on("/get", handleGet);
   server.on("/fan/set", HTTP_POST, handleFanSet);
+  server.on("/vpd/set", HTTP_POST, handleVPDControlSet);
   server.on("/light/set", HTTP_POST, handleLightSet);
   server.on("/light/schedule/set", HTTP_POST, handleLightScheduleSet);
 
