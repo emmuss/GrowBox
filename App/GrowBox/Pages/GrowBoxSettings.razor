@@ -38,8 +38,10 @@
                         @bind-Value=@_isVPDControlActive/>
                     <RadzenLabel Text="Enable VPD Control" Component="_isVPDControlActive" Style="margin-left: 8px; vertical-align: middle;"></RadzenLabel>
                 </div>
+                
                 <RadzenSelectBar Size="ButtonSize.ExtraSmall" @bind-Value=_vdpPlantStage TValue="VPDControlPlantStage">
                     <Items>
+                        <RadzenSelectBarItem Text="Off" Value="VPDControlPlantStage.Off" />
                         <RadzenSelectBarItem Text="Prop." Value="VPDControlPlantStage.Propagation" />
                         <RadzenSelectBarItem Text="Early Grow" Value="VPDControlPlantStage.EarlyGrow" />
                         <RadzenSelectBarItem Text="Late Grow" Value="VPDControlPlantStage.LateGrow" />
@@ -47,6 +49,8 @@
                         <RadzenSelectBarItem Text="Late Flower" Value="VPDControlPlantStage.LateFlower" />
                     </Items>
                 </RadzenSelectBar>
+                
+                
 
                 <div style="display: flex; justify-content: start; align-items: center; gap: 16px;">
                     <RadzenDatePicker TValue="DateTime"

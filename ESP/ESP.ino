@@ -540,6 +540,7 @@ void setupOTA() {
       Serial.println("End Failed");
     }
   });
+  ArduinoOTA.setHostname(hostname);
   ArduinoOTA.begin();
   Serial.println("OTA Available.");
 }

@@ -1,0 +1,66 @@
+﻿@using Radzen.Blazor.Rendering
+
+@if (Values.Length > 0)
+{
+    <RadzenStack JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem" Style="width: 100%">
+        <RadzenStack JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem" Style="min-width: 40%">
+            <span>
+                @Title
+            </span>
+            <span>
+                @Current.ToString("0.00")
+            </span>
+            <span style="text-align: right">
+                @CurrentUnit
+            </span>
+        </RadzenStack>
+        <div style="@Style">
+            <RadzenSparkline style="width: 100%; height: 30px">
+                <RadzenLineSeries Smooth="true"
+                                  Data="@Values"
+                                  Title="@Title"
+                                  CategoryProperty="@nameof(GaugeValue.Index)"
+                                  ValueProperty="@nameof(GaugeValue.Value)"
+                                  StrokeWidth="2"
+                                  Stroke="@Fill"/>
+                <RadzenValueAxis Min="@Min" Max="@Max" Visible="false" />
+                <RadzenCategoryAxis Visible="false" Padding="-20"/>
+            </RadzenSparkline>
+        </div>
+    </RadzenStack>
+}
+
+@code {
+
+    public record GaugeValue(double Value, int Index);
+
+    [Parameter] public GaugeValue[] Values { get; set; } = [];
+    [Parameter] public double Current { get; set; } = 0;
+    [Parameter] public string CurrentUnit { get; set; } = "";
+    [Parameter] public double Min { get; set; } = 0;
+    [Parameter] public double Max { get; set; } = 100;
+    [Parameter] public double Low { get; set; } = 20;
+    [Parameter] public double High { get; set; } = 80;
+    [Parameter] public string Title { get; set; } = "VPD";
+    [Parameter] public string Fill { get; set; } = "white";
+
+    private const string ClBad = "rgba(127,51,0,0.7)";
+    private const string ClGood = "rgba(38,127,0,0.7)";
+    private string Style {
+        get
+        {
+            try
+            {
+                double lowP = 100 - (((Low - Min) / (Max - Min)) * 100);
+                string lowS = lowP.ToInvariantString();
+                double highP = 100 - (((High - Min) / (Max - Min)) * 100);
+                string highS = highP.ToInvariantString();
+                return $"width: 100%; background: linear-gradient({ClBad} 0%, {ClBad} {highS}%, {ClGood} {highS}%, {ClGood} {lowS}%, {ClBad} {lowS}%, {ClBad} 100%)";
+            }
+            catch (Exception e)
+            {
+                return "width: 100%; background: transparent";
+            }
+        }
+    }
+}
