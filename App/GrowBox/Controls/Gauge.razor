@@ -2,13 +2,19 @@
 
 @if (Values.Length > 0)
 {
-    <RadzenStack JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem" Style="width: 100%">
-        <RadzenStack JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem" Style="min-width: 40%">
+    <RadzenStack JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem" Style="width: 100%">
+        <RadzenStack JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" Gap="0.5rem">
             <span>
                 @Title
             </span>
+            <span class="rz-color-info" style="font-size: 0.5rem">
+                @Low.ToString("0.00")
+            </span>
             <span>
                 @Current.ToString("0.00")
+            </span>
+            <span class="rz-color-danger" style="font-size: 0.5rem">
+                @High.ToString("0.00")
             </span>
             <span style="text-align: right">
                 @CurrentUnit
@@ -32,7 +38,7 @@
 
 @code {
 
-    public record GaugeValue(double Value, int Index);
+    public record GaugeValue(double Value, DateTime Index);
 
     [Parameter] public GaugeValue[] Values { get; set; } = [];
     [Parameter] public double Current { get; set; } = 0;
@@ -55,11 +61,11 @@
                 string lowS = lowP.ToInvariantString();
                 double highP = 100 - (((High - Min) / (Max - Min)) * 100);
                 string highS = highP.ToInvariantString();
-                return $"width: 100%; background: linear-gradient({ClBad} 0%, {ClBad} {highS}%, {ClGood} {highS}%, {ClGood} {lowS}%, {ClBad} {lowS}%, {ClBad} 100%)";
+                return $"min-width: 30%; background: linear-gradient({ClBad} 0%, {ClBad} {highS}%, {ClGood} {highS}%, {ClGood} {lowS}%, {ClBad} {lowS}%, {ClBad} 100%)";
             }
             catch (Exception e)
             {
-                return "width: 100%; background: transparent";
+                return "min-width: 30%; background: transparent";
             }
         }
     }

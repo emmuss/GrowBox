@@ -148,7 +148,15 @@
     [Parameter] public Guid GrowBoxId { get; set; } = Guid.Empty;
 
     private Gauge.GaugeValue[] GetGaugeValues(string type)
-        => _sensorReadings.Where(x => x.Type == type).Take(20).Select((x, i) => new Gauge.GaugeValue(x.Value, i)).ToArray();
+    {
+        var gaugeValues = _sensorReadings
+            .Where(x => x.Type == type)
+            .OrderByDescending(x => x.Created)
+            .Take(20)
+            .Select((x, i) => new Gauge.GaugeValue(x.Value, x.Created))
+            .ToArray();
+        return gaugeValues;
+    }
 
     protected override void OnInitialized()
     {
@@ -236,7 +244,6 @@
 
     private async Task Update(Composition composition)
     {
-        Console.WriteLine($"what? {composition.GrowBox.GrowBoxUrl}");
         _growBox = composition.GrowBox;
         _growBoxRoot = composition.GrowBoxEspRoot;
         _waterPumpsRoot = composition.WaterPumpsEspRoot;
